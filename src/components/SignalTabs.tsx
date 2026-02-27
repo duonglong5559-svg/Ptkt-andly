@@ -2,16 +2,24 @@ interface SignalTabsProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   trendLineCount: number;
+  highProbabilityCount: number;
 }
 
 const tabs = [
   { id: "live", label: "Tín hiệu Live" },
   { id: "analysis", label: "Phân tích thị trường" },
+  { id: "llm", label: "LLM Setup" },
   { id: "trendlines", label: "Đường xu hướng" },
-  { id: "futures", label: "Futures" },
+  { id: "liquidity", label: "Liquidity Map" },
+  { id: "futures", label: "Futures / Forex" },
 ];
 
-export default function SignalTabs({ activeTab, onTabChange, trendLineCount }: SignalTabsProps) {
+export default function SignalTabs({
+  activeTab,
+  onTabChange,
+  trendLineCount,
+  highProbabilityCount,
+}: SignalTabsProps) {
   return (
     <div className="border-b border-trading-borderColor">
       <div className="flex items-center overflow-x-auto">
@@ -28,6 +36,9 @@ export default function SignalTabs({ activeTab, onTabChange, trendLineCount }: S
             {tab.label}
             {tab.id === "trendlines" && (
               <span className="ml-1 text-trading-gold">( {trendLineCount} )</span>
+            )}
+            {tab.id === "analysis" && (
+              <span className="ml-1 text-emerald-400">( {highProbabilityCount} )</span>
             )}
             {activeTab === tab.id && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-trading-gold" />

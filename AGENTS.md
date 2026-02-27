@@ -2,10 +2,13 @@
 
 ## Cursor Cloud specific instructions
 
-This is an empty scaffold repository ("Ptkt-andly") with no application code, dependencies, or services. The repo contains only a `README.md`.
+This repository is a Vite + React + TypeScript trading dashboard.
 
-- **No dependencies** to install (no `package.json`, `requirements.txt`, `pyproject.toml`, etc.).
-- **No services** to start or test.
-- **No lint, test, or build commands** are configured.
+- Install dependencies with `npm install`.
+- Use `npm run dev` for local development.
+- Use `npm run lint`, `npm run test`, and `npm run build` for validation.
+- UI changes should be manually tested in browser and accompanied by screenshot/video artifacts.
 
-When application code is added, update this file with relevant setup, run, and test instructions.
+Environment variable for liquidity integration:
+
+- `VITE_LIQUIHEAT_API_URL` (optional, LiquiHeart endpoint).
