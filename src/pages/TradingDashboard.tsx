@@ -25,6 +25,7 @@ export default function TradingDashboard() {
   const [activeTab, setActiveTab] = useState("trendlines");
   const [showPairSelector, setShowPairSelector] = useState(false);
   const [showLiquidity, setShowLiquidity] = useState(false);
+  const [onlyHighProb, setOnlyHighProb] = useState(true);
 
   const candlesQuery = useQuery({
     queryKey: ["candles", selectedPair.kind, selectedPair.marketSymbol, timeframe],
@@ -95,6 +96,7 @@ export default function TradingDashboard() {
     () => levels.filter((l) => (l.rr ?? 0) >= 1.8 && l.confidence >= 85 && l.strength !== "Trung bình"),
     [levels]
   );
+  const displayedLevels = onlyHighProb ? highProbLevels : levels;
 
   const futuresQuery = useQuery({
     queryKey: ["futures", derivedPair.marketSymbol],
@@ -115,15 +117,15 @@ export default function TradingDashboard() {
             </div>
             <h3 className="text-sm font-semibold text-white mb-1">Tín hiệu Live đang hoạt động</h3>
             <p className="text-xs text-muted-foreground">
-              Hệ thống đang theo dõi {selectedPair.symbol} trên khung {timeframe}
+              Hệ thống đang theo dõi {derivedPair.symbol} trên khung {timeframe}
             </p>
             <div className="mt-4 grid grid-cols-2 gap-2">
               <div className="bg-secondary/30 rounded-lg p-3 text-center">
-                <div className="text-trading-green text-lg font-bold">{selectedPair.bullish}%</div>
+                <div className="text-trading-green text-lg font-bold">{derivedPair.bullish}%</div>
                 <div className="text-[10px] text-muted-foreground">Bullish</div>
               </div>
               <div className="bg-secondary/30 rounded-lg p-3 text-center">
-                <div className="text-trading-red text-lg font-bold">{selectedPair.bearish}%</div>
+                <div className="text-trading-red text-lg font-bold">{derivedPair.bearish}%</div>
                 <div className="text-[10px] text-muted-foreground">Bearish</div>
               </div>
             </div>
@@ -227,8 +229,28 @@ export default function TradingDashboard() {
       case "trendlines":
         return (
           <div>
+            <div className="px-4 py-3 border-b border-trading-borderColor flex items-center justify-between">
+              <div className="text-xs text-muted-foreground">
+                {onlyHighProb ? "Đang lọc kèo tỉ lệ cao" : "Đang hiển thị toàn bộ SR cứng"}
+              </div>
+              <button
+                onClick={() => setOnlyHighProb((v) => !v)}
+                className={`px-2 py-1 rounded-md text-[10px] border transition-colors ${
+                  onlyHighProb
+                    ? "bg-trading-gold/20 text-trading-gold border-trading-gold/30"
+                    : "bg-secondary/40 text-white border-trading-borderColor"
+                }`}
+              >
+                High RR {onlyHighProb ? "ON" : "OFF"}
+              </button>
+            </div>
+            {displayedLevels.length === 0 && (
+              <div className="px-4 py-6 text-center text-xs text-muted-foreground">
+                Chưa có mức nào đủ chuẩn kèo tỉ lệ cao trên khung này. Tắt “High RR” để xem toàn bộ SR cứng.
+              </div>
+            )}
             {/* Resistance section */}
-            {highProbLevels
+            {displayedLevels
               .filter((l) => l.type === "resistance")
               .map((level) => (
               <ResistanceCard
@@ -238,7 +260,7 @@ export default function TradingDashboard() {
               />
             ))}
             {/* Support section */}
-            {highProbLevels
+            {displayedLevels
               .filter((l) => l.type === "support")
               .map((level) => (
               <ResistanceCard
@@ -359,7 +381,7 @@ export default function TradingDashboard() {
             <SignalTabs
               activeTab={activeTab}
               onTabChange={setActiveTab}
-              trendLineCount={derivedPair.trendLines}
+              trendLineCount={displayedLevels.length}
             />
             {renderTabContent()}
           </div>
