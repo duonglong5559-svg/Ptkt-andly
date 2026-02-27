@@ -6,6 +6,7 @@ interface SignalTabsProps {
 
 const tabs = [
   { id: "live", label: "Tín hiệu Live" },
+  { id: "ai", label: "AI Phân tích" },
   { id: "analysis", label: "Phân tích thị trường" },
   { id: "trendlines", label: "Đường xu hướng" },
   { id: "futures", label: "Futures" },

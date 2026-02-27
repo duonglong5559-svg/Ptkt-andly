@@ -2,10 +2,26 @@
 
 ## Cursor Cloud specific instructions
 
-This is an empty scaffold repository ("Ptkt-andly") with no application code, dependencies, or services. The repo contains only a `README.md`.
+Trading dashboard (Crypto + Forex) với phân tích kỹ thuật, AI, thanh khoản.
 
-- **No dependencies** to install (no `package.json`, `requirements.txt`, `pyproject.toml`, etc.).
-- **No services** to start or test.
-- **No lint, test, or build commands** are configured.
+### Setup
+```bash
+npm install
+cp .env.example .env
+# Thêm API key vào .env (tùy chọn): Twelve Data, ExchangeRate, Coinglass
+```
 
-When application code is added, update this file with relevant setup, run, and test instructions.
+### Chạy
+```bash
+npm run dev
+```
+
+### Build
+```bash
+npm run build
+```
+
+### API Keys (optional)
+- `VITE_TWELVE_DATA_API_KEY` - Forex/crypto OHLC (XAUUSD, etc.)
+- `VITE_EXCHANGERATE_API_KEY` - Giá vàng XAUUSD
+- `VITE_COINGLASS_API_KEY` - Liquidation map / thanh khoản

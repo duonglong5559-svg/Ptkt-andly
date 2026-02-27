@@ -52,7 +52,7 @@ export default function CandlestickChart({ candles, pair, levels }: CandlestickC
   const trendLine1End = candles.length > 10 ? candles[candles.length - 5] : null;
 
   return (
-    <div ref={containerRef} className="w-full h-[320px] relative border-b border-trading-borderColor">
+    <div ref={containerRef} className="w-full h-full min-h-[280px] relative border-b border-trading-borderColor">
       <svg width={width} height={height} className="block">
         {/* Grid lines */}
         {Array.from({ length: 6 }).map((_, i) => {

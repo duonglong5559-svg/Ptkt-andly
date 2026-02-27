@@ -55,21 +55,33 @@ export const tradingPairs: TradingPair[] = [
     symbol: "ETH/USDT",
     name: "Ethereum",
     currentPrice: 3456.78,
-    pivotPrice: 3380.50,
+    pivotPrice: 3380.5,
     buyPrice: 3456.78,
-    sellPrice: 3520.00,
+    sellPrice: 3520.0,
     bullish: 62,
     bearish: 38,
     signal: "Long",
     trendLines: 5,
   },
   {
+    symbol: "XAUUSD",
+    name: "Vàng (Forex)",
+    currentPrice: 2654.82,
+    pivotPrice: 2648.15,
+    buyPrice: 2654.82,
+    sellPrice: 2668.5,
+    bullish: 58,
+    bearish: 42,
+    signal: "Long",
+    trendLines: 4,
+  },
+  {
     symbol: "BNB/USDT",
     name: "Binance Coin",
     currentPrice: 598.45,
-    pivotPrice: 585.20,
+    pivotPrice: 585.2,
     buyPrice: 598.45,
-    sellPrice: 612.30,
+    sellPrice: 612.3,
     bullish: 55,
     bearish: 45,
     signal: "Neutral",
@@ -79,9 +91,9 @@ export const tradingPairs: TradingPair[] = [
     symbol: "XRP/USDT",
     name: "Ripple",
     currentPrice: 2.3456,
-    pivotPrice: 2.2800,
+    pivotPrice: 2.28,
     buyPrice: 2.3456,
-    sellPrice: 2.4100,
+    sellPrice: 2.41,
     bullish: 68,
     bearish: 32,
     signal: "Long",
@@ -92,7 +104,8 @@ export const tradingPairs: TradingPair[] = [
 export function generateCandleData(pair: TradingPair, count: number = 50): CandleData[] {
   const candles: CandleData[] = [];
   let price = pair.currentPrice * 0.96;
-  const volatility = pair.currentPrice * 0.008;
+  const volMult = pair.symbol.includes("XAU") ? 0.004 : 0.008;
+  const volatility = pair.currentPrice * volMult;
 
   const now = new Date();
   for (let i = count - 1; i >= 0; i--) {
@@ -125,9 +138,18 @@ export function generateCandleData(pair: TradingPair, count: number = 50): Candl
   return candles;
 }
 
-export function getResistanceLevels(pair: TradingPair): ResistanceLevel[] {
+/** Ngưỡng confidence tối thiểu - chỉ lấy kháng cự/hỗ trợ cứng */
+const MIN_CONFIDENCE_SOLID = 85;
+
+/** Chỉ lấy các level có confidence >= ngưỡng (cứng) */
+export function getResistanceLevels(
+  pair: TradingPair,
+  options?: { minConfidence?: number; usePivotFromCandles?: boolean }
+): ResistanceLevel[] {
+  const minConf = options?.minConfidence ?? MIN_CONFIDENCE_SOLID;
   const p = pair.currentPrice;
-  return [
+
+  const all: ResistanceLevel[] = [
     {
       id: "r1",
       type: "resistance",
@@ -214,6 +236,8 @@ export function getResistanceLevels(pair: TradingPair): ResistanceLevel[] {
       isAuto: false,
     },
   ];
+
+  return all.filter((l) => l.confidence >= minConf);
 }
 
 export const timeframes = ["6H", "8H", "12H", "1H", "2H", "4H", "1D", "1W"] as const;
