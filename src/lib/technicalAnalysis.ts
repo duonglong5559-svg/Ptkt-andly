@@ -70,6 +70,41 @@ export interface EntrySignal {
   rr: string;
 }
 
+// ─── TREND LINE ───
+export interface TrendLine {
+  id: string;
+  type: "resistance" | "support";
+  startIndex: number;
+  endIndex: number;
+  startPrice: number;
+  endPrice: number;
+  slope: number;
+  touches: number;
+  strength: number;
+}
+
+// ─── ENTRY MARKER on chart ───
+export interface EntryMarker {
+  index: number;
+  price: number;
+  type: "entry" | "tp1" | "tp2" | "sl";
+  direction: "long" | "short";
+  label: string;
+}
+
+// ─── AI ANALYSIS SCORE ───
+export interface AIAnalysisScore {
+  overall: number;
+  trendScore: number;
+  momentumScore: number;
+  volumeScore: number;
+  patternScore: number;
+  srScore: number;
+  volatilityScore: number;
+  verdict: string;
+  details: string[];
+}
+
 // ─── Helpers ───
 function bodySize(c: CandleData): number {
   return Math.abs(c.close - c.open);
@@ -728,4 +763,266 @@ export function calculateSentiment(candles: CandleData[]): { bullish: number; be
   const total = bullVol + bearVol || 1;
   const bull = Math.round((bullVol / total) * 100);
   return { bullish: bull, bearish: 100 - bull };
+}
+
+// ─── TREND LINE DETECTION ───
+export function detectTrendLines(candles: CandleData[]): TrendLine[] {
+  if (candles.length < 15) return [];
+  const lines: TrendLine[] = [];
+
+  const swingHighs: { idx: number; price: number }[] = [];
+  const swingLows: { idx: number; price: number }[] = [];
+
+  for (let i = 3; i < candles.length - 3; i++) {
+    const c = candles[i];
+    if (
+      c.high > candles[i - 1].high && c.high > candles[i - 2].high && c.high > candles[i - 3].high &&
+      c.high > candles[i + 1].high && c.high > candles[i + 2].high
+    ) {
+      swingHighs.push({ idx: i, price: c.high });
+    }
+    if (
+      c.low < candles[i - 1].low && c.low < candles[i - 2].low && c.low < candles[i - 3].low &&
+      c.low < candles[i + 1].low && c.low < candles[i + 2].low
+    ) {
+      swingLows.push({ idx: i, price: c.low });
+    }
+  }
+
+  const buildLine = (
+    points: { idx: number; price: number }[],
+    type: "resistance" | "support",
+  ): TrendLine | null => {
+    if (points.length < 2) return null;
+    let bestLine: TrendLine | null = null;
+    let bestTouches = 0;
+
+    for (let i = 0; i < points.length - 1; i++) {
+      for (let j = i + 1; j < points.length; j++) {
+        const p1 = points[i];
+        const p2 = points[j];
+        if (Math.abs(p2.idx - p1.idx) < 5) continue;
+
+        const slope = (p2.price - p1.price) / (p2.idx - p1.idx);
+        let touches = 2;
+
+        for (let k = 0; k < points.length; k++) {
+          if (k === i || k === j) continue;
+          const expected = p1.price + slope * (points[k].idx - p1.idx);
+          const tolerance = Math.abs(p2.price - p1.price) * 0.08 + candles[0].close * 0.001;
+          if (Math.abs(points[k].price - expected) < tolerance) touches++;
+        }
+
+        if (touches > bestTouches) {
+          bestTouches = touches;
+          bestLine = {
+            id: `tl-${type}-${i}-${j}`,
+            type,
+            startIndex: p1.idx,
+            endIndex: Math.min(candles.length - 1, p2.idx + Math.floor((p2.idx - p1.idx) * 0.3)),
+            startPrice: p1.price,
+            endPrice: p1.price + slope * (Math.min(candles.length - 1, p2.idx + Math.floor((p2.idx - p1.idx) * 0.3)) - p1.idx),
+            slope,
+            touches,
+            strength: Math.min(100, touches * 25),
+          };
+        }
+      }
+    }
+    return bestLine;
+  };
+
+  const rLine = buildLine(swingHighs, "resistance");
+  const sLine = buildLine(swingLows, "support");
+  if (rLine) lines.push(rLine);
+  if (sLine) lines.push(sLine);
+
+  if (swingHighs.length >= 3) {
+    const sorted = [...swingHighs].sort((a, b) => b.price - a.price);
+    const top2 = sorted.slice(0, 2);
+    if (top2.length === 2 && Math.abs(top2[0].idx - top2[1].idx) >= 5) {
+      const [p1, p2] = top2[0].idx < top2[1].idx ? [top2[0], top2[1]] : [top2[1], top2[0]];
+      const slope = (p2.price - p1.price) / (p2.idx - p1.idx);
+      const endIdx = Math.min(candles.length - 1, p2.idx + 10);
+      lines.push({
+        id: "tl-major-res",
+        type: "resistance",
+        startIndex: p1.idx,
+        endIndex: endIdx,
+        startPrice: p1.price,
+        endPrice: p1.price + slope * (endIdx - p1.idx),
+        slope,
+        touches: 2,
+        strength: 60,
+      });
+    }
+  }
+
+  if (swingLows.length >= 3) {
+    const sorted = [...swingLows].sort((a, b) => a.price - b.price);
+    const bot2 = sorted.slice(0, 2);
+    if (bot2.length === 2 && Math.abs(bot2[0].idx - bot2[1].idx) >= 5) {
+      const [p1, p2] = bot2[0].idx < bot2[1].idx ? [bot2[0], bot2[1]] : [bot2[1], bot2[0]];
+      const slope = (p2.price - p1.price) / (p2.idx - p1.idx);
+      const endIdx = Math.min(candles.length - 1, p2.idx + 10);
+      lines.push({
+        id: "tl-major-sup",
+        type: "support",
+        startIndex: p1.idx,
+        endIndex: endIdx,
+        startPrice: p1.price,
+        endPrice: p1.price + slope * (endIdx - p1.idx),
+        slope,
+        touches: 2,
+        strength: 60,
+      });
+    }
+  }
+
+  return lines;
+}
+
+// ─── ENTRY MARKERS ON CHART ───
+export function generateEntryMarkers(
+  candles: CandleData[],
+  signal: EntrySignal,
+): EntryMarker[] {
+  if (signal.type === "Neutral" || candles.length < 5) return [];
+  const lastIdx = candles.length - 1;
+  const dir = signal.type === "Long" ? "long" : "short";
+  const markers: EntryMarker[] = [
+    { index: lastIdx, price: signal.entry, type: "entry", direction: dir, label: `Entry ${signal.type}` },
+    { index: lastIdx, price: signal.sl, type: "sl", direction: dir, label: "Stop Loss" },
+    { index: lastIdx, price: signal.tp1, type: "tp1", direction: dir, label: "TP1" },
+    { index: lastIdx, price: signal.tp2, type: "tp2", direction: dir, label: "TP2" },
+  ];
+  return markers;
+}
+
+// ─── AI SCORING ENGINE ───
+export function runAIAnalysis(
+  candles: CandleData[],
+  pivot: PivotPoints | null,
+  patterns: CandlePattern[],
+  srLevels: SRLevel[],
+  rsi: number,
+  macd: ReturnType<typeof calculateMACD>,
+  atr: number,
+  sentiment: { bullish: number; bearish: number },
+): AIAnalysisScore {
+  if (candles.length < 20 || !pivot) {
+    return { overall: 50, trendScore: 50, momentumScore: 50, volumeScore: 50, patternScore: 50, srScore: 50, volatilityScore: 50, verdict: "Chưa đủ dữ liệu", details: [] };
+  }
+
+  const details: string[] = [];
+  const price = candles[candles.length - 1].close;
+
+  // 1. Trend score (EMA20 vs EMA50, price vs pivot)
+  const ema20 = calculateEMA(candles, 20);
+  const ema50 = calculateEMA(candles, 50);
+  const last20 = ema20[ema20.length - 1];
+  const last50 = ema50[ema50.length - 1];
+  let trendScore = 50;
+  if (last20 > last50) { trendScore += 20; details.push("EMA20 > EMA50: xu hướng tăng"); }
+  else { trendScore -= 20; details.push("EMA20 < EMA50: xu hướng giảm"); }
+  if (price > pivot.pp) { trendScore += 15; details.push("Giá trên Pivot Point"); }
+  else { trendScore -= 15; details.push("Giá dưới Pivot Point"); }
+  const recentCandles = candles.slice(-5);
+  const upCount = recentCandles.filter(c => c.close > c.open).length;
+  if (upCount >= 4) { trendScore += 10; details.push("4/5 nến gần nhất tăng"); }
+  else if (upCount <= 1) { trendScore -= 10; details.push("4/5 nến gần nhất giảm"); }
+  trendScore = Math.max(0, Math.min(100, trendScore));
+
+  // 2. Momentum score (RSI, MACD)
+  let momentumScore = 50;
+  if (rsi > 70) { momentumScore -= 25; details.push(`RSI ${rsi.toFixed(0)}: quá mua, momentum giảm`); }
+  else if (rsi > 55) { momentumScore += 15; details.push(`RSI ${rsi.toFixed(0)}: momentum tích cực`); }
+  else if (rsi < 30) { momentumScore += 25; details.push(`RSI ${rsi.toFixed(0)}: quá bán, cơ hội mua`); }
+  else if (rsi < 45) { momentumScore -= 15; details.push(`RSI ${rsi.toFixed(0)}: momentum yếu`); }
+  if (macd.crossover) { momentumScore += 20; details.push("MACD bullish crossover"); }
+  else if (macd.crossunder) { momentumScore -= 20; details.push("MACD bearish crossunder"); }
+  else if (macd.histogram > 0) { momentumScore += 8; }
+  else { momentumScore -= 8; }
+  momentumScore = Math.max(0, Math.min(100, momentumScore));
+
+  // 3. Volume score
+  let volumeScore = 50;
+  const avgVol = candles.slice(-20).reduce((s, c) => s + c.volume, 0) / 20;
+  const recentVol = candles.slice(-3).reduce((s, c) => s + c.volume, 0) / 3;
+  const volRatio = recentVol / (avgVol || 1);
+  if (volRatio > 1.5) { volumeScore += 25; details.push(`Volume tăng ${(volRatio * 100 - 100).toFixed(0)}% so với TB`); }
+  else if (volRatio > 1.1) { volumeScore += 10; }
+  else if (volRatio < 0.6) { volumeScore -= 20; details.push("Volume thấp, thiếu xác nhận"); }
+  if (sentiment.bullish > 65) { volumeScore += 10; details.push(`${sentiment.bullish}% volume mua`); }
+  else if (sentiment.bearish > 65) { volumeScore -= 10; details.push(`${sentiment.bearish}% volume bán`); }
+  volumeScore = Math.max(0, Math.min(100, volumeScore));
+
+  // 4. Pattern score
+  let patternScore = 50;
+  const recentPatterns = patterns.filter(p => p.index >= candles.length - 5);
+  for (const p of recentPatterns) {
+    if (p.direction === "bullish") patternScore += p.strength * 8;
+    else if (p.direction === "bearish") patternScore -= p.strength * 8;
+  }
+  if (recentPatterns.length > 0) {
+    const strongest = recentPatterns.sort((a, b) => b.strength - a.strength)[0];
+    details.push(`Mô hình: ${strongest.type} (${strongest.direction === "bullish" ? "tăng" : strongest.direction === "bearish" ? "giảm" : "trung tính"})`);
+  }
+  patternScore = Math.max(0, Math.min(100, patternScore));
+
+  // 5. S/R score
+  let srScore = 50;
+  const nearR = srLevels.find(l => l.type === "resistance" && l.price > price && (l.price - price) / price < 0.02);
+  const nearS = srLevels.find(l => l.type === "support" && l.price < price && (price - l.price) / price < 0.02);
+  if (nearR) {
+    srScore -= nearR.confidence * 0.3;
+    details.push(`Gần kháng cự $${nearR.price.toFixed(0)} (${nearR.confidence}% tin cậy)`);
+  }
+  if (nearS) {
+    srScore += nearS.confidence * 0.3;
+    details.push(`Gần hỗ trợ $${nearS.price.toFixed(0)} (${nearS.confidence}% tin cậy)`);
+  }
+  const strongR = srLevels.filter(l => l.type === "resistance" && l.strength === "Rất mạnh").length;
+  const strongS = srLevels.filter(l => l.type === "support" && l.strength === "Rất mạnh").length;
+  if (strongS > strongR) { srScore += 10; }
+  else if (strongR > strongS) { srScore -= 10; }
+  srScore = Math.max(0, Math.min(100, srScore));
+
+  // 6. Volatility score
+  let volatilityScore = 50;
+  const atrPct = (atr / price) * 100;
+  if (atrPct > 3) { volatilityScore += 15; details.push(`Biến động cao (ATR ${atrPct.toFixed(1)}%)`); }
+  else if (atrPct > 1.5) { volatilityScore += 5; }
+  else { volatilityScore -= 10; details.push(`Biến động thấp (ATR ${atrPct.toFixed(1)}%)`); }
+  volatilityScore = Math.max(0, Math.min(100, volatilityScore));
+
+  // Weighted overall
+  const weights = { trend: 0.25, momentum: 0.20, volume: 0.15, pattern: 0.15, sr: 0.15, volatility: 0.10 };
+  const overall = Math.round(
+    trendScore * weights.trend +
+    momentumScore * weights.momentum +
+    volumeScore * weights.volume +
+    patternScore * weights.pattern +
+    srScore * weights.sr +
+    volatilityScore * weights.volatility
+  );
+
+  let verdict: string;
+  if (overall >= 70) verdict = "AI khuyến nghị LONG mạnh";
+  else if (overall >= 60) verdict = "AI thiên hướng LONG";
+  else if (overall <= 30) verdict = "AI khuyến nghị SHORT mạnh";
+  else if (overall <= 40) verdict = "AI thiên hướng SHORT";
+  else verdict = "AI đang trung lập, chờ tín hiệu rõ hơn";
+
+  return {
+    overall,
+    trendScore: Math.round(trendScore),
+    momentumScore: Math.round(momentumScore),
+    volumeScore: Math.round(volumeScore),
+    patternScore: Math.round(patternScore),
+    srScore: Math.round(srScore),
+    volatilityScore: Math.round(volatilityScore),
+    verdict,
+    details,
+  };
 }

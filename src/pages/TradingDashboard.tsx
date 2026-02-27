@@ -7,10 +7,12 @@ import SignalTabs from "@/components/SignalTabs";
 import ResistanceCard from "@/components/ResistanceCard";
 import EntrySignalCard from "@/components/EntrySignalCard";
 import PatternList from "@/components/PatternList";
+import MarqueeTicker from "@/components/MarqueeTicker";
+import AIAnalysisPanel from "@/components/AIAnalysisPanel";
 import { useBinanceData } from "@/hooks/useBinanceData";
 import { TRADING_PAIRS } from "@/lib/binanceApi";
 import { formatPrice, formatVolume, Timeframe } from "@/data/tradingData";
-import { Loader2, RefreshCw, TrendingUp, TrendingDown, Activity } from "lucide-react";
+import { Loader2, RefreshCw, TrendingUp, TrendingDown, Activity, Brain } from "lucide-react";
 
 export default function TradingDashboard() {
   const [selectedSymbol, setSelectedSymbol] = useState(TRADING_PAIRS[0].symbol);
@@ -23,6 +25,14 @@ export default function TradingDashboard() {
 
   const resistanceLevels = analysis.srLevels.filter((l) => l.type === "resistance");
   const supportLevels = analysis.srLevels.filter((l) => l.type === "support");
+
+  const tabs = [
+    { id: "live", label: "Tín hiệu Live" },
+    { id: "ai", label: "AI Phân tích" },
+    { id: "analysis", label: "Kỹ thuật" },
+    { id: "trendlines", label: "Hỗ trợ/KC" },
+    { id: "patterns", label: "Mô hình nến" },
+  ];
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -45,10 +55,12 @@ export default function TradingDashboard() {
           </div>
         );
 
+      case "ai":
+        return <AIAnalysisPanel score={analysis.aiScore} />;
+
       case "analysis":
         return (
           <div className="px-3 py-3 space-y-2 animate-fadeInUp">
-            {/* Market Overview */}
             <div className="bg-secondary/20 rounded-lg p-3">
               <h4 className="text-[10px] font-bold text-trading-gold mb-2 flex items-center gap-1">
                 <Activity className="w-3 h-3" /> Chỉ báo kỹ thuật
@@ -88,6 +100,10 @@ export default function TradingDashboard() {
                   <span className="text-muted-foreground">ATR:</span>
                   <span className="text-white">{formatPrice(analysis.atr)}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Trend Lines:</span>
+                  <span className="text-purple-400">{analysis.trendLines.length} detected</span>
+                </div>
                 {analysis.ticker && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Volume 24h:</span>
@@ -97,13 +113,15 @@ export default function TradingDashboard() {
               </div>
             </div>
 
-            {/* Signal summary */}
             <div className={`rounded-lg p-3 border ${analysis.signal.type === "Long" ? "bg-green-500/5 border-green-500/20" : analysis.signal.type === "Short" ? "bg-red-500/5 border-red-500/20" : "bg-yellow-500/5 border-yellow-500/20"}`}>
-              <h4 className="text-[10px] font-bold text-white mb-2">Tổng kết phân tích</h4>
+              <h4 className="text-[10px] font-bold text-white mb-2">Tổng kết</h4>
               <div className="flex items-center gap-2 mb-1">
                 {analysis.signal.type === "Long" ? <TrendingUp className="w-4 h-4 text-green-400" /> : analysis.signal.type === "Short" ? <TrendingDown className="w-4 h-4 text-red-400" /> : <Activity className="w-4 h-4 text-yellow-400" />}
                 <span className={`font-bold text-sm ${analysis.signal.type === "Long" ? "text-green-400" : analysis.signal.type === "Short" ? "text-red-400" : "text-yellow-400"}`}>
-                  {analysis.signal.type} - {analysis.signal.confidence}% tin cậy
+                  {analysis.signal.type} - {analysis.signal.confidence}%
+                </span>
+                <span className="text-[9px] text-muted-foreground ml-auto flex items-center gap-1">
+                  <Brain className="w-3 h-3 text-purple-400" /> AI: {analysis.aiScore.overall}/100
                 </span>
               </div>
               <p className="text-[9px] text-muted-foreground leading-relaxed">{analysis.signal.reason}</p>
@@ -148,6 +166,13 @@ export default function TradingDashboard() {
       className="min-h-screen bg-trading-darkBg text-white max-w-lg mx-auto relative"
       onClick={() => showPairSelector && setShowPairSelector(false)}
     >
+      {/* Scrolling marquee */}
+      <MarqueeTicker
+        aiScore={analysis.aiScore}
+        signal={analysis.signal}
+        currentSymbol={selectedSymbol}
+      />
+
       <TradingHeader
         selectedSymbol={selectedSymbol}
         onSelectSymbol={setSelectedSymbol}
@@ -160,32 +185,27 @@ export default function TradingDashboard() {
       />
 
       <SentimentBar bullish={analysis.sentiment.bullish} bearish={analysis.sentiment.bearish} />
-
       <TimeframeSelector selected={timeframe} onSelect={setTimeframe} />
 
-      {/* Chart area */}
+      {/* Chart */}
       {analysis.loading && analysis.candles.length === 0 ? (
-        <div className="h-[340px] flex items-center justify-center border-b border-trading-borderColor">
+        <div className="h-[360px] flex items-center justify-center border-b border-trading-borderColor">
           <div className="flex flex-col items-center gap-2 animate-fadeIn">
             <Loader2 className="w-6 h-6 text-trading-gold animate-spin" />
             <span className="text-xs text-muted-foreground">Đang tải dữ liệu từ Binance...</span>
           </div>
         </div>
       ) : analysis.error && analysis.candles.length === 0 ? (
-        <div className="h-[340px] flex items-center justify-center border-b border-trading-borderColor">
+        <div className="h-[360px] flex items-center justify-center border-b border-trading-borderColor">
           <div className="flex flex-col items-center gap-2">
             <span className="text-xs text-red-400">{analysis.error}</span>
-            <button
-              onClick={() => window.location.reload()}
-              className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-white transition-colors"
-            >
+            <button onClick={() => window.location.reload()} className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-white transition-colors">
               <RefreshCw className="w-3 h-3" /> Thử lại
             </button>
           </div>
         </div>
       ) : (
         <div className="relative">
-          {/* Pivot info overlay */}
           {analysis.pivot && (
             <div className="absolute top-1 left-2 z-10 text-[9px] text-muted-foreground/80 animate-fadeIn">
               Giá tại {formatPrice(currentPrice)}.{" "}
@@ -194,7 +214,6 @@ export default function TradingDashboard() {
                 : `Dưới Pivot (${formatPrice(analysis.pivot.pp)}), xu hướng giảm`}
             </div>
           )}
-          {/* Loading indicator for refreshing */}
           {analysis.loading && analysis.candles.length > 0 && (
             <div className="absolute top-1 right-20 z-10">
               <RefreshCw className="w-3 h-3 text-trading-gold animate-spin" />
@@ -206,15 +225,31 @@ export default function TradingDashboard() {
             pivot={analysis.pivot}
             srLevels={analysis.srLevels}
             atr={analysis.atr}
+            trendLines={analysis.trendLines}
+            entryMarkers={analysis.entryMarkers}
           />
         </div>
       )}
 
-      <SignalTabs
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        trendLineCount={analysis.srLevels.length}
-      />
+      {/* Tabs */}
+      <div className="border-b border-trading-borderColor">
+        <div className="flex items-center overflow-x-auto">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-3 py-2.5 text-[10px] font-semibold whitespace-nowrap transition-all relative ${
+                activeTab === tab.id ? "text-white" : "text-muted-foreground hover:text-white"
+              }`}
+            >
+              {tab.label}
+              {tab.id === "trendlines" && <span className="ml-0.5 text-trading-gold">({analysis.srLevels.length})</span>}
+              {tab.id === "ai" && <span className="ml-0.5 text-purple-400">✦</span>}
+              {activeTab === tab.id && <div className="absolute bottom-0 left-1 right-1 h-[2px] bg-trading-gold rounded-full" />}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="pb-20">{renderTabContent()}</div>
     </div>

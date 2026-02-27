@@ -16,10 +16,16 @@ import {
   detectSRLevels,
   generateEntrySignal,
   calculateSentiment,
+  detectTrendLines,
+  generateEntryMarkers,
+  runAIAnalysis,
   CandlePattern,
   PivotPoints,
   SRLevel,
   EntrySignal,
+  TrendLine,
+  EntryMarker,
+  AIAnalysisScore,
 } from "@/lib/technicalAnalysis";
 
 export interface TradingAnalysis {
@@ -33,6 +39,9 @@ export interface TradingAnalysis {
   srLevels: SRLevel[];
   signal: EntrySignal;
   sentiment: { bullish: number; bearish: number };
+  trendLines: TrendLine[];
+  entryMarkers: EntryMarker[];
+  aiScore: AIAnalysisScore;
   loading: boolean;
   error: string | null;
   lastUpdate: number;
@@ -99,8 +108,12 @@ export function useBinanceData(symbol: string, timeframe: string): TradingAnalys
   const macd = candles.length > 26 ? calculateMACD(candles) : null;
   const currentPrice = ticker?.lastPrice || candles[candles.length - 1]?.close || 0;
   const srLevels = detectSRLevels(candles, currentPrice, atr, patterns);
-  const signal = generateEntrySignal(candles, pivot, patterns, srLevels, rsi, macd || { macd: 0, signal: 0, histogram: 0, crossover: false, crossunder: false }, atr);
+  const defaultMacd = { macd: 0, signal: 0, histogram: 0, crossover: false, crossunder: false };
+  const signal = generateEntrySignal(candles, pivot, patterns, srLevels, rsi, macd || defaultMacd, atr);
   const sentiment = calculateSentiment(candles);
+  const trendLines = detectTrendLines(candles);
+  const entryMarkers = generateEntryMarkers(candles, signal);
+  const aiScore = runAIAnalysis(candles, pivot, patterns, srLevels, rsi, macd || defaultMacd, atr, sentiment);
 
   return {
     candles,
@@ -113,6 +126,9 @@ export function useBinanceData(symbol: string, timeframe: string): TradingAnalys
     srLevels,
     signal,
     sentiment,
+    trendLines,
+    entryMarkers,
+    aiScore,
     loading,
     error,
     lastUpdate,

@@ -79,6 +79,17 @@
   to { transform: scaleY(1); }
 }
 
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 35s linear infinite;
+}
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
 .animate-fadeInUp { animation: fadeInUp 0.4s ease-out both; }
 .animate-fadeIn { animation: fadeIn 0.3s ease-out both; }
 .animate-slideInRight { animation: slideInRight 0.35s ease-out both; }
