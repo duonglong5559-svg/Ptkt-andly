@@ -17,6 +17,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/binance/, ""),
       },
+      "/api/binance_futures": {
+        target: "https://fapi.binance.com",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/binance_futures/, ""),
+      },
     },
   },
   plugins: [react()],

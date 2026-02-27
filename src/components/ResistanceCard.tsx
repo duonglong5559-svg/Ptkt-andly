@@ -1,11 +1,18 @@
 import { ResistanceLevel } from "@/data/tradingData";
 import { Eye, Copy, Shield, TrendingDown, TrendingUp } from "lucide-react";
+import { toast } from "sonner";
+import { appendTrainingExample } from "@/lib/dataset/trainingDataset";
 
 interface ResistanceCardProps {
   level: ResistanceLevel;
+  meta?: {
+    symbol: string;
+    timeframe: string;
+    source?: string;
+  };
 }
 
-export default function ResistanceCard({ level }: ResistanceCardProps) {
+export default function ResistanceCard({ level, meta }: ResistanceCardProps) {
   const isResistance = level.type === "resistance";
   const dotColor = isResistance ? "bg-red-500" : "bg-green-500";
   const labelColor = isResistance ? "text-red-400" : "text-green-400";
@@ -15,6 +22,26 @@ export default function ResistanceCard({ level }: ResistanceCardProps) {
       : level.strength === "Mạnh"
         ? "text-orange-400"
         : "text-yellow-400";
+
+  const saveForTraining = async () => {
+    try {
+      if (!meta) {
+        toast.error("Thiếu metadata (symbol/timeframe) để lưu dataset.");
+        return;
+      }
+      appendTrainingExample({
+        createdAt: new Date().toISOString(),
+        symbol: meta.symbol,
+        timeframe: meta.timeframe,
+        source: meta.source,
+        level,
+      });
+      await navigator.clipboard.writeText(JSON.stringify({ symbol: meta.symbol, timeframe: meta.timeframe, level }, null, 2));
+      toast.success("Đã lưu vào dataset + copy JSON vào clipboard");
+    } catch {
+      toast.error("Không lưu/copy được (trình duyệt chặn clipboard).");
+    }
+  };
 
   return (
     <div className="border-b border-trading-borderColor px-4 py-3 hover:bg-secondary/20 transition-colors">
@@ -80,7 +107,7 @@ export default function ResistanceCard({ level }: ResistanceCardProps) {
           <button className="p-1 hover:bg-secondary rounded transition-colors">
             <Eye className="w-3.5 h-3.5 text-muted-foreground" />
           </button>
-          <button className="p-1 hover:bg-secondary rounded transition-colors">
+          <button onClick={saveForTraining} className="p-1 hover:bg-secondary rounded transition-colors">
             <Copy className="w-3.5 h-3.5 text-muted-foreground" />
           </button>
         </div>

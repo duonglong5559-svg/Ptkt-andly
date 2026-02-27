@@ -17,6 +17,7 @@ export interface ResistanceLevel {
   confidence: number;
   testCount: number;
   riskReward: string;
+  rr?: number;
   scalpPrice: number;
   swingPrice: number;
   stopLoss: number;

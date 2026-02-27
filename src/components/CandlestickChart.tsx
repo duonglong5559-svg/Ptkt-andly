@@ -1,13 +1,16 @@
 import { useMemo, useRef, useState, useEffect } from "react";
 import { CandleData, TradingPair, ResistanceLevel } from "@/data/tradingData";
+import { pivotPointsClassic } from "@/lib/ta/pivots";
+import type { LiquidityZone } from "@/lib/liquidity/types";
 
 interface CandlestickChartProps {
   candles: CandleData[];
   pair: TradingPair;
   levels: ResistanceLevel[];
+  liquidityZones?: LiquidityZone[];
 }
 
-export default function CandlestickChart({ candles, pair, levels }: CandlestickChartProps) {
+export default function CandlestickChart({ candles, pair, levels, liquidityZones }: CandlestickChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 400, height: 300 });
 
@@ -51,9 +54,44 @@ export default function CandlestickChart({ candles, pair, levels }: CandlestickC
   const trendLine1Start = candles.length > 10 ? candles[5] : null;
   const trendLine1End = candles.length > 10 ? candles[candles.length - 5] : null;
 
+  const pivots = useMemo(() => {
+    const prev = candles[candles.length - 2];
+    if (!prev) return null;
+    return pivotPointsClassic(prev.high, prev.low, prev.close);
+  }, [candles]);
+
+  const pivotLines = useMemo(() => {
+    if (!pivots) return [];
+    return [
+      { key: "pp", price: pivots.pp, color: "#f59e0b", dash: "4,4", opacity: 0.55 },
+      { key: "r1", price: pivots.r1, color: "#ef4444", dash: "2,3", opacity: 0.35 },
+      { key: "s1", price: pivots.s1, color: "#22c55e", dash: "2,3", opacity: 0.35 },
+      { key: "r2", price: pivots.r2, color: "#ef4444", dash: "2,3", opacity: 0.25 },
+      { key: "s2", price: pivots.s2, color: "#22c55e", dash: "2,3", opacity: 0.25 },
+    ];
+  }, [pivots]);
+
   return (
-    <div ref={containerRef} className="w-full h-[320px] relative border-b border-trading-borderColor">
+    <div ref={containerRef} className="w-full h-full min-h-[280px] relative border-b border-trading-borderColor">
       <svg width={width} height={height} className="block">
+        {/* Liquidity heatmap zones */}
+        {(liquidityZones ?? []).map((z, i) => {
+          const yTop = priceToY(Math.max(z.low, z.high));
+          const yBot = priceToY(Math.min(z.low, z.high));
+          const h = Math.max(1, yBot - yTop);
+          const alpha = Math.max(0.06, Math.min(0.22, (z.intensity ?? 0.6) * 0.22));
+          return (
+            <rect
+              key={`liq-${i}`}
+              x={padding.left}
+              y={yTop}
+              width={width - padding.left - padding.right}
+              height={h}
+              fill={`rgba(59, 130, 246, ${alpha})`}
+            />
+          );
+        })}
+
         {/* Grid lines */}
         {Array.from({ length: 6 }).map((_, i) => {
           const price = minPrice + ((maxPrice - minPrice) * i) / 5;
@@ -118,16 +156,19 @@ export default function CandlestickChart({ candles, pair, levels }: CandlestickC
         })}
 
         {/* Pivot line */}
-        <line
-          x1={padding.left}
-          y1={priceToY(pair.pivotPrice)}
-          x2={width - padding.right}
-          y2={priceToY(pair.pivotPrice)}
-          stroke="#f59e0b"
-          strokeWidth={0.8}
-          strokeDasharray="4,4"
-          opacity={0.5}
-        />
+        {pivotLines.map((pl) => (
+          <line
+            key={pl.key}
+            x1={padding.left}
+            y1={priceToY(pl.price)}
+            x2={width - padding.right}
+            y2={priceToY(pl.price)}
+            stroke={pl.color}
+            strokeWidth={0.8}
+            strokeDasharray={pl.dash}
+            opacity={pl.opacity}
+          />
+        ))}
 
         {/* Trend lines */}
         {trendLine1Start && trendLine1End && (
@@ -285,7 +326,7 @@ export default function CandlestickChart({ candles, pair, levels }: CandlestickC
       {/* Price info overlay */}
       <div className="absolute top-2 left-3 text-[11px] text-muted-foreground space-y-0.5">
         <div>
-          Giá đang ở phía trên Pivot ({pair.pivotPrice.toFixed(2)}), có xu hướng tăng
+          Pivot (Classic) + SR cứng (hard SR)
         </div>
       </div>
     </div>
