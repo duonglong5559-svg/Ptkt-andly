@@ -41,7 +41,7 @@ export default function CandlestickChart({
     return () => obs.disconnect();
   }, []);
 
-  const pad = { top: 10, right: 62, bottom: 20, left: 24 };
+  const pad = { top: 8, right: 68, bottom: 18, left: 24 };
   const chartW = dims.w - pad.left - pad.right;
   const chartH = dims.h - pad.top - pad.bottom;
 
@@ -68,8 +68,8 @@ export default function CandlestickChart({
   const priceFromY = useCallback((yVal: number) => minP + (1 - (yVal - pad.top) / chartH) * (maxP - minP), [minP, maxP, chartH]);
   const indexFromX = useCallback((xVal: number) => Math.max(0, Math.min(candles.length - 1, Math.floor((xVal - pad.left) / cW))), [candles.length, cW]);
 
-  const gridLines = useMemo(() => Array.from({ length: 6 }).map((_, i) => {
-    const price = minP + ((maxP - minP) * i) / 5;
+  const gridLines = useMemo(() => Array.from({ length: 8 }).map((_, i) => {
+    const price = minP + ((maxP - minP) * i) / 7;
     return { price, yv: y(price) };
   }), [minP, maxP, y]);
 
@@ -99,15 +99,21 @@ export default function CandlestickChart({
   const hovered = hoveredCandle !== null ? candles[hoveredCandle] : null;
   const showCrosshair = activeTool !== "cursor" && mousePos;
 
-  // Find entry marker for signal badge
+  // Entry signal data
   const entryM = entryMarkers.find((m) => m.type === "entry");
   const slM = entryMarkers.find((m) => m.type === "sl");
   const tp1M = entryMarkers.find((m) => m.type === "tp1");
 
+  // Sell/Buy prices (from signal)
+  const sellPrice = entryM?.direction === "short" ? entryM.price : (slM?.price || 0);
+  const buyPrice = entryM?.direction === "long" ? entryM.price : (tp1M?.price || 0);
+
+  const RX = dims.w - pad.right; // right edge of chart
+
   return (
     <div ref={containerRef} className="w-full h-[360px] relative border-b border-trading-borderColor">
       {hovered && (
-        <div className="absolute top-0.5 right-16 z-10 flex gap-1.5 text-[8px] bg-black/70 rounded px-1 py-0.5">
+        <div className="absolute top-0.5 right-[72px] z-10 flex gap-1 text-[7px] bg-black/70 rounded px-1 py-0.5">
           <span className="text-muted-foreground">O<span className="text-white ml-0.5">{formatPrice(hovered.open)}</span></span>
           <span className="text-muted-foreground">H<span className="text-trading-green ml-0.5">{formatPrice(hovered.high)}</span></span>
           <span className="text-muted-foreground">L<span className="text-trading-red ml-0.5">{formatPrice(hovered.low)}</span></span>
@@ -123,25 +129,25 @@ export default function CandlestickChart({
           <filter id="gl"><feGaussianBlur stdDeviation="2" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
         </defs>
 
-        {/* Grid */}
+        {/* Grid lines + price labels on right */}
         {gridLines.map((g, i) => (
           <g key={i}>
-            <line x1={pad.left} y1={g.yv} x2={dims.w - pad.right} y2={g.yv} stroke="#1f2937" strokeWidth={0.3} strokeDasharray="2,4" />
-            <text x={dims.w - pad.right + 3} y={g.yv + 3} fill="#4b5563" fontSize={7}>{formatPrice(g.price)}</text>
+            <line x1={pad.left} y1={g.yv} x2={RX} y2={g.yv} stroke="#1f2937" strokeWidth={0.3} strokeDasharray="2,4" />
+            <text x={RX + 3} y={g.yv + 3} fill="#6b7280" fontSize={7}>{formatPrice(g.price)}</text>
           </g>
         ))}
 
-        {/* Pivot */}
+        {/* Pivot line */}
         {pivot && (
           <g>
-            <line x1={pad.left} y1={y(pivot.pp)} x2={dims.w - pad.right} y2={y(pivot.pp)} stroke="#f59e0b" strokeWidth={0.5} strokeDasharray="3,3" opacity={0.4} />
-            <text x={pad.left + 1} y={y(pivot.pp) - 2} fill="#f59e0b" fontSize={6} opacity={0.5}>PP</text>
+            <line x1={pad.left} y1={y(pivot.pp)} x2={RX} y2={y(pivot.pp)} stroke="#f59e0b" strokeWidth={0.5} strokeDasharray="3,3" opacity={0.4} />
+            <text x={pad.left + 1} y={y(pivot.pp) - 1} fill="#f59e0b" fontSize={6} opacity={0.5}>PP</text>
           </g>
         )}
 
-        {/* S/R lines (subtle) */}
-        {srLevels.slice(0, 3).map((l) => (
-          <line key={l.id} x1={pad.left} y1={y(l.price)} x2={dims.w - pad.right} y2={y(l.price)} stroke={l.type === "resistance" ? "#ef4444" : "#22c55e"} strokeWidth={0.5} strokeDasharray="4,3" opacity={0.3} />
+        {/* S/R dashed lines */}
+        {srLevels.slice(0, 4).map((l) => (
+          <line key={l.id} x1={pad.left} y1={y(l.price)} x2={RX} y2={y(l.price)} stroke={l.type === "resistance" ? "#ef4444" : "#22c55e"} strokeWidth={0.5} strokeDasharray="4,3" opacity={0.3} />
         ))}
 
         {/* TREND LINES */}
@@ -179,87 +185,70 @@ export default function CandlestickChart({
           );
         })}
 
-        {/* ═══ ENTRY: just arrow + small label ═══ */}
-        {entryM && (() => {
-          const mx = pad.left + entryM.index * cW + cW / 2;
-          const my = y(entryM.price);
-          const isLong = entryM.direction === "long";
-          const color = isLong ? "#22c55e" : "#ef4444";
-          return (
-            <g>
-              {/* Entry arrow */}
-              <polygon
-                points={isLong
-                  ? `${mx - 5},${my + 12} ${mx},${my + 2} ${mx + 5},${my + 12}`
-                  : `${mx - 5},${my - 12} ${mx},${my - 2} ${mx + 5},${my - 12}`}
-                fill={color} opacity={0.9}
-              />
-              {/* Small label */}
-              <rect x={mx - 14} y={my + (isLong ? 14 : -24)} width={28} height={10} fill={color} rx={2} opacity={0.85} />
-              <text x={mx} y={my + (isLong ? 22 : -16)} fill="white" fontSize={6} fontWeight="bold" textAnchor="middle">
-                {isLong ? "LONG" : "SHORT"}
-              </text>
-              {/* Pulse */}
-              <circle cx={mx} cy={my} r={2} fill="none" stroke={color} strokeWidth={1}>
-                <animate attributeName="r" values="2;6;2" dur="1.5s" repeatCount="indefinite" />
-                <animate attributeName="opacity" values="0.7;0;0.7" dur="1.5s" repeatCount="indefinite" />
-              </circle>
-            </g>
-          );
-        })()}
-
-        {/* SL line (thin red dashed) */}
-        {slM && (
-          <g>
-            <line x1={pad.left} y1={y(slM.price)} x2={dims.w - pad.right} y2={y(slM.price)} stroke="#ef4444" strokeWidth={0.5} strokeDasharray="2,3" opacity={0.4} />
-            <text x={dims.w - pad.right - 2} y={y(slM.price) - 2} fill="#ef4444" fontSize={6} textAnchor="end" opacity={0.6}>SL</text>
-          </g>
+        {/* ══ SL thin dashed line ══ */}
+        {slM && slM.price > 0 && (
+          <line x1={pad.left} y1={y(slM.price)} x2={RX} y2={y(slM.price)} stroke="#ef4444" strokeWidth={0.4} strokeDasharray="2,3" opacity={0.3} />
         )}
-
-        {/* TP1 line (thin green dashed) */}
-        {tp1M && (
-          <g>
-            <line x1={pad.left} y1={y(tp1M.price)} x2={dims.w - pad.right} y2={y(tp1M.price)} stroke="#22c55e" strokeWidth={0.5} strokeDasharray="2,3" opacity={0.4} />
-            <text x={dims.w - pad.right - 2} y={y(tp1M.price) - 2} fill="#22c55e" fontSize={6} textAnchor="end" opacity={0.6}>TP</text>
-          </g>
+        {/* ══ TP thin dashed line ══ */}
+        {tp1M && tp1M.price > 0 && (
+          <line x1={pad.left} y1={y(tp1M.price)} x2={RX} y2={y(tp1M.price)} stroke="#22c55e" strokeWidth={0.4} strokeDasharray="2,3" opacity={0.3} />
         )}
 
         {/* USER DRAWINGS */}
         <DrawingLayer drawings={drawings} activeDrawing={activeDrawing} chartWidth={dims.w} chartHeight={chartH} padLeft={pad.left} padRight={pad.right} padTop={pad.top} yFn={y} onRemoveDrawing={onRemoveDrawing} />
 
-        {/* Current price */}
-        <line x1={pad.left} y1={y(currentPrice)} x2={dims.w - pad.right} y2={y(currentPrice)} stroke="#3b82f6" strokeWidth={0.6} strokeDasharray="2,2">
+        {/* ══ SELL label (like reference) ══ */}
+        {sellPrice > 0 && sellPrice > currentPrice && (
+          <g>
+            <rect x={RX} y={y(sellPrice) - 8} width={64} height={16} fill="#ef4444" rx={2} />
+            <text x={RX + 3} y={y(sellPrice) + 3} fill="white" fontSize={7} fontWeight="bold">Sell  {formatPrice(sellPrice)}</text>
+          </g>
+        )}
+
+        {/* ══ BUY label (like reference) ══ */}
+        {buyPrice > 0 && buyPrice < currentPrice && (
+          <g>
+            <rect x={RX} y={y(buyPrice) - 8} width={64} height={16} fill="#22c55e" rx={2} />
+            <text x={RX + 3} y={y(buyPrice) + 3} fill="white" fontSize={7} fontWeight="bold">Buy  {formatPrice(buyPrice)}</text>
+          </g>
+        )}
+
+        {/* ══ Current price (blue) ══ */}
+        <line x1={pad.left} y1={y(currentPrice)} x2={RX} y2={y(currentPrice)} stroke="#3b82f6" strokeWidth={0.6} strokeDasharray="2,2">
           <animate attributeName="opacity" values="1;0.3;1" dur="2s" repeatCount="indefinite" />
         </line>
-        <rect x={dims.w - pad.right} y={y(currentPrice) - 7} width={58} height={14} fill="#3b82f6" rx={2} />
-        <text x={dims.w - pad.right + 3} y={y(currentPrice) + 3} fill="white" fontSize={7} fontWeight="bold">{formatPrice(currentPrice)}</text>
+        <rect x={RX} y={y(currentPrice) - 8} width={64} height={16} fill="#3b82f6" rx={2} />
+        <text x={RX + 3} y={y(currentPrice) + 3} fill="white" fontSize={7} fontWeight="bold">Buy  {formatPrice(currentPrice)}</text>
 
-        {/* S/R price labels */}
+        {/* S/R price labels on right (colored boxes) */}
         {srLevels.slice(0, 3).map((l) => {
           const ly = y(l.price);
           const isR = l.type === "resistance";
+          // Don't overlap with Buy/Sell/Current
+          const conflict = [currentPrice, sellPrice, buyPrice].some((p) => p > 0 && Math.abs(y(p) - ly) < 18);
+          if (conflict) return null;
           return (
             <g key={`lbl-${l.id}`}>
-              <rect x={dims.w - pad.right} y={ly - 7} width={58} height={14} fill={isR ? "#7f1d1d" : "#14532d"} rx={2} opacity={0.7} />
-              <text x={dims.w - pad.right + 3} y={ly + 3} fill={isR ? "#fca5a5" : "#86efac"} fontSize={7}>{formatPrice(l.price)}</text>
+              <rect x={RX} y={ly - 8} width={64} height={16} fill={isR ? "#b91c1c" : "#166534"} rx={2} opacity={0.75} />
+              <text x={RX + 3} y={ly + 3} fill={isR ? "#fecaca" : "#bbf7d0"} fontSize={7}>{formatPrice(l.price)}</text>
             </g>
           );
         })}
 
         {/* Crosshair */}
-        {showCrosshair && mousePos && mousePos.x > pad.left && mousePos.x < dims.w - pad.right && mousePos.y > pad.top && mousePos.y < dims.h - pad.bottom && (
+        {showCrosshair && mousePos && mousePos.x > pad.left && mousePos.x < RX && mousePos.y > pad.top && mousePos.y < dims.h - pad.bottom && (
           <g>
             <line x1={mousePos.x} y1={pad.top} x2={mousePos.x} y2={dims.h - pad.bottom} stroke="#fff" strokeWidth={0.2} strokeDasharray="2,3" opacity={0.3} />
-            <line x1={pad.left} y1={mousePos.y} x2={dims.w - pad.right} y2={mousePos.y} stroke="#fff" strokeWidth={0.2} strokeDasharray="2,3" opacity={0.3} />
-            <rect x={dims.w - pad.right} y={mousePos.y - 7} width={58} height={14} fill="#374151" rx={2} />
-            <text x={dims.w - pad.right + 3} y={mousePos.y + 3} fill="#d1d5db" fontSize={7}>{formatPrice(priceFromY(mousePos.y))}</text>
+            <line x1={pad.left} y1={mousePos.y} x2={RX} y2={mousePos.y} stroke="#fff" strokeWidth={0.2} strokeDasharray="2,3" opacity={0.3} />
+            <rect x={RX} y={mousePos.y - 7} width={64} height={14} fill="#374151" rx={2} />
+            <text x={RX + 3} y={mousePos.y + 3} fill="#d1d5db" fontSize={7}>{formatPrice(priceFromY(mousePos.y))}</text>
           </g>
         )}
 
         {/* Time labels */}
-        {candles.filter((_, i) => i % Math.max(1, Math.floor(candles.length / 7)) === 0).map((c, idx) => {
+        {candles.filter((_, i) => i % Math.max(1, Math.floor(candles.length / 6)) === 0).map((c, idx) => {
           const i = candles.indexOf(c);
-          return <text key={idx} x={pad.left + i * cW + cW / 2} y={dims.h - 3} fill="#4b5563" fontSize={7} textAnchor="middle">{c.timeLabel}</text>;
+          return <text key={idx} x={pad.left + i * cW + cW / 2} y={dims.h - 2} fill="#4b5563" fontSize={7} textAnchor="middle">{c.timeLabel}</text>;
         })}
       </svg>
     </div>

@@ -32,12 +32,12 @@ export default function TradingDashboard() {
   const pairName = TRADING_PAIRS.find((p) => p.symbol === selectedSymbol)?.short || selectedSymbol;
 
   const tabs = [
-    { id: "live", label: "Live" },
-    { id: "ai", label: "AI ✦" },
-    { id: "trendlines", label: `S/R (${analysis.srLevels.length})` },
+    { id: "live", label: "Tín hiệu Live" },
+    { id: "analysis", label: "Phân tích thị trường" },
+    { id: "trendlines", label: `Đường xu hướng ( ${analysis.srLevels.length} )` },
     { id: "futures", label: "Futures" },
-    { id: "patterns", label: "Nến" },
-    { id: "analysis", label: "Kỹ thuật" },
+    { id: "ai", label: "AI ✦" },
+    { id: "patterns", label: "Mô hình nến" },
     { id: "knowledge", label: "Kiến thức" },
   ];
 
