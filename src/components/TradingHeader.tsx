@@ -37,7 +37,7 @@ export default function TradingHeader({
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-[10px] font-bold text-white shadow-lg">
             SC
           </div>
-          <span className="font-semibold text-sm text-white">Crypto and Forex Trading</span>
+          <span className="font-semibold text-sm text-white">Crypto & Forex Trading</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -52,14 +52,17 @@ export default function TradingHeader({
             onClick={onTogglePairSelector}
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-secondary border border-trading-borderColor text-xs font-medium text-white hover:bg-secondary/80 transition-all"
           >
-            {selectedPair.symbol} - {selectedPair.name}
+            {selectedPair.symbol}
+            {selectedPair.category === "forex" && (
+              <span className="text-[8px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">FX</span>
+            )}
             <ChevronDown className="w-3 h-3" />
           </button>
         </div>
       </div>
 
       {showPairSelector && (
-        <div className="absolute top-full right-4 z-50 mt-1 w-60 bg-card border border-trading-borderColor rounded-lg shadow-2xl overflow-hidden">
+        <div className="absolute top-full right-4 z-50 mt-1 w-64 bg-card border border-trading-borderColor rounded-lg shadow-2xl overflow-hidden">
           {pairs.map((pair) => (
             <button
               key={pair.symbol}
@@ -71,7 +74,12 @@ export default function TradingHeader({
                 pair.symbol === selectedPair.symbol ? "bg-secondary/30 text-green-400" : "text-white"
               }`}
             >
-              <span className="font-medium">{pair.symbol}</span>
+              <div className="flex items-center gap-2">
+                <span className="font-medium">{pair.symbol}</span>
+                {pair.category === "forex" && (
+                  <span className="text-[8px] px-1 py-0.5 rounded bg-blue-500/20 text-blue-400 border border-blue-500/30">FOREX</span>
+                )}
+              </div>
               <span className="text-muted-foreground text-xs">{pair.name}</span>
             </button>
           ))}
