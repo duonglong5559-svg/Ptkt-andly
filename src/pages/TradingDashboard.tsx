@@ -22,7 +22,6 @@ export default function TradingDashboard() {
   const [timeframe, setTimeframe] = useState<Timeframe>("4H");
   const [activeTab, setActiveTab] = useState("trendlines");
   const [showPairSelector, setShowPairSelector] = useState(false);
-  const [showFibo, setShowFibo] = useState(false);
 
   const drawingTools = useDrawingTools();
   const analysis = useBinanceData(selectedSymbol, timeframe);
@@ -47,21 +46,17 @@ export default function TradingDashboard() {
       case "live":
         return (
           <div className="animate-fadeInUp">
-            <EntrySignalCard signal={analysis.signal} />
-            <div className="px-3 py-2">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="bg-secondary/30 rounded-lg p-2 text-center">
-                  <div className="text-trading-green text-base font-bold">{analysis.sentiment.bullish}%</div>
-                  <div className="text-[8px] text-muted-foreground">Bullish Vol</div>
+            <EntrySignalCard signal={analysis.signal} aiScore={analysis.aiScore} timeframe={timeframe} pairName={pairName} />
+            <div className="px-3 py-1.5">
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="bg-secondary/30 rounded-md p-1.5 text-center">
+                  <div className="text-trading-green text-sm font-bold">{analysis.sentiment.bullish}%</div>
+                  <div className="text-[7px] text-muted-foreground">Buy Volume</div>
                 </div>
-                <div className="bg-secondary/30 rounded-lg p-2 text-center">
-                  <div className="text-trading-red text-base font-bold">{analysis.sentiment.bearish}%</div>
-                  <div className="text-[8px] text-muted-foreground">Bearish Vol</div>
+                <div className="bg-secondary/30 rounded-md p-1.5 text-center">
+                  <div className="text-trading-red text-sm font-bold">{analysis.sentiment.bearish}%</div>
+                  <div className="text-[7px] text-muted-foreground">Sell Volume</div>
                 </div>
-              </div>
-              {/* Timeframe context */}
-              <div className="mt-2 bg-secondary/20 rounded-lg p-2 text-[9px] text-muted-foreground">
-                <span className="text-trading-gold font-bold">Khung {timeframe}</span> — {pairName}: AI phân tích entry tại <span className="text-white">${formatPrice(analysis.signal.entry)}</span>, SL: <span className="text-red-400">${formatPrice(analysis.signal.sl)}</span>, TP1: <span className="text-green-400">${formatPrice(analysis.signal.tp1)}</span>
               </div>
             </div>
           </div>
@@ -99,22 +94,6 @@ export default function TradingDashboard() {
                 {analysis.ticker && <div className="flex justify-between"><span className="text-muted-foreground">Vol 24h:</span><span className="text-white">{formatVolume(analysis.ticker.quoteVolume)}</span></div>}
               </div>
             </div>
-
-            {/* Fibonacci */}
-            {analysis.fibonacci && (
-              <div className="bg-secondary/20 rounded-lg p-2.5">
-                <div className="flex items-center justify-between mb-1.5">
-                  <h4 className="text-[9px] font-bold text-purple-400">Fibonacci Auto</h4>
-                  <button onClick={() => setShowFibo(!showFibo)} className="text-[8px] text-muted-foreground hover:text-white">{showFibo ? "Ẩn" : "Hiện"}</button>
-                </div>
-                {showFibo && analysis.fibonacci.map((f, i) => (
-                  <div key={i} className="flex justify-between text-[9px]">
-                    <span className="text-muted-foreground">{f.label}</span>
-                    <span className={f.level === 0.618 || f.level === 0.5 ? "text-purple-400 font-bold" : "text-white"}>${formatPrice(f.price)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
 
             <div className={`rounded-lg p-2.5 border ${analysis.signal.type === "Long" ? "bg-green-500/5 border-green-500/20" : analysis.signal.type === "Short" ? "bg-red-500/5 border-red-500/20" : "bg-yellow-500/5 border-yellow-500/20"}`}>
               <div className="flex items-center gap-1.5 mb-1">
