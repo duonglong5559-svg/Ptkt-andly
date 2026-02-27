@@ -1,293 +1,219 @@
 import { useMemo, useRef, useState, useEffect } from "react";
-import { CandleData, TradingPair, ResistanceLevel } from "@/data/tradingData";
+import { CandleData } from "@/lib/binanceApi";
+import { PivotPoints, SRLevel } from "@/lib/technicalAnalysis";
+import { formatPrice } from "@/data/tradingData";
 
 interface CandlestickChartProps {
   candles: CandleData[];
-  pair: TradingPair;
-  levels: ResistanceLevel[];
+  currentPrice: number;
+  pivot: PivotPoints | null;
+  srLevels: SRLevel[];
+  atr: number;
 }
 
-export default function CandlestickChart({ candles, pair, levels }: CandlestickChartProps) {
+export default function CandlestickChart({
+  candles,
+  currentPrice,
+  pivot,
+  srLevels,
+  atr,
+}: CandlestickChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 400, height: 300 });
+  const [dims, setDims] = useState({ w: 400, h: 320 });
+  const [hoveredCandle, setHoveredCandle] = useState<number | null>(null);
 
   useEffect(() => {
     const obs = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setDimensions({
-          width: entry.contentRect.width,
-          height: Math.max(280, entry.contentRect.height),
-        });
+      for (const e of entries) {
+        setDims({ w: e.contentRect.width, h: Math.max(300, e.contentRect.height) });
       }
     });
     if (containerRef.current) obs.observe(containerRef.current);
     return () => obs.disconnect();
   }, []);
 
-  const { width, height } = dimensions;
-  const padding = { top: 10, right: 80, bottom: 30, left: 10 };
-  const chartW = width - padding.left - padding.right;
-  const chartH = height - padding.top - padding.bottom;
+  const pad = { top: 12, right: 72, bottom: 24, left: 6 };
+  const chartW = dims.w - pad.left - pad.right;
+  const chartH = dims.h - pad.top - pad.bottom;
 
-  const { minPrice, maxPrice, candleWidth } = useMemo(() => {
-    if (candles.length === 0) return { minPrice: 0, maxPrice: 0, candleWidth: 0 };
-    const allLows = candles.map((c) => c.low);
-    const allHighs = candles.map((c) => c.high);
-    const levelPrices = levels.map((l) => l.price);
-    const allPrices = [...allLows, ...allHighs, ...levelPrices, pair.pivotPrice];
-    const min = Math.min(...allPrices) * 0.999;
-    const max = Math.max(...allPrices) * 1.001;
-    return { minPrice: min, maxPrice: max, candleWidth: chartW / candles.length };
-  }, [candles, levels, pair, chartW]);
+  const { minP, maxP, cW } = useMemo(() => {
+    if (!candles.length) return { minP: 0, maxP: 0, cW: 0 };
+    const lows = candles.map((c) => c.low);
+    const highs = candles.map((c) => c.high);
+    const extras: number[] = [currentPrice];
+    if (pivot) extras.push(pivot.r1, pivot.s1);
+    srLevels.slice(0, 4).forEach((l) => extras.push(l.price));
+    const allP = [...lows, ...highs, ...extras];
+    const min = Math.min(...allP);
+    const max = Math.max(...allP);
+    const margin = (max - min) * 0.03;
+    return {
+      minP: min - margin,
+      maxP: max + margin,
+      cW: chartW / candles.length,
+    };
+  }, [candles, currentPrice, pivot, srLevels, chartW]);
 
-  const priceToY = (price: number) => {
-    if (maxPrice === minPrice) return chartH / 2;
-    return padding.top + chartH * (1 - (price - minPrice) / (maxPrice - minPrice));
+  const y = (price: number) => {
+    if (maxP === minP) return chartH / 2;
+    return pad.top + chartH * (1 - (price - minP) / (maxP - minP));
   };
 
-  const resistanceLevels = levels.filter((l) => l.type === "resistance");
-  const supportLevels = levels.filter((l) => l.type === "support");
+  const gridLines = useMemo(() => {
+    const count = 6;
+    return Array.from({ length: count + 1 }).map((_, i) => {
+      const price = minP + ((maxP - minP) * i) / count;
+      return { price, y: y(price) };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [minP, maxP, dims.h]);
 
-  const trendLine1Start = candles.length > 10 ? candles[5] : null;
-  const trendLine1End = candles.length > 10 ? candles[candles.length - 5] : null;
+  const hovered = hoveredCandle !== null ? candles[hoveredCandle] : null;
 
   return (
-    <div ref={containerRef} className="w-full h-[320px] relative border-b border-trading-borderColor">
-      <svg width={width} height={height} className="block">
-        {/* Grid lines */}
-        {Array.from({ length: 6 }).map((_, i) => {
-          const price = minPrice + ((maxPrice - minPrice) * i) / 5;
-          const y = priceToY(price);
+    <div ref={containerRef} className="w-full h-[340px] relative border-b border-trading-borderColor">
+      {/* OHLC overlay */}
+      {hovered && (
+        <div className="absolute top-1 left-2 z-10 flex gap-3 text-[9px] animate-fadeIn">
+          <span className="text-muted-foreground">
+            O: <span className="text-white">{formatPrice(hovered.open)}</span>
+          </span>
+          <span className="text-muted-foreground">
+            H: <span className="text-trading-green">{formatPrice(hovered.high)}</span>
+          </span>
+          <span className="text-muted-foreground">
+            L: <span className="text-trading-red">{formatPrice(hovered.low)}</span>
+          </span>
+          <span className="text-muted-foreground">
+            C: <span className="text-white">{formatPrice(hovered.close)}</span>
+          </span>
+        </div>
+      )}
+
+      <svg
+        width={dims.w}
+        height={dims.h}
+        className="block"
+        onMouseLeave={() => setHoveredCandle(null)}
+      >
+        {/* Grid */}
+        {gridLines.map((g, i) => (
+          <g key={`g${i}`}>
+            <line x1={pad.left} y1={g.y} x2={dims.w - pad.right} y2={g.y} stroke="#1f2937" strokeWidth={0.4} strokeDasharray="2,4" />
+            <text x={dims.w - pad.right + 4} y={g.y + 3} fill="#4b5563" fontSize={8}>{formatPrice(g.price)}</text>
+          </g>
+        ))}
+
+        {/* Pivot line */}
+        {pivot && (
+          <g>
+            <line x1={pad.left} y1={y(pivot.pp)} x2={dims.w - pad.right} y2={y(pivot.pp)} stroke="#f59e0b" strokeWidth={0.6} strokeDasharray="4,3" opacity={0.6} />
+            <text x={pad.left + 2} y={y(pivot.pp) - 3} fill="#f59e0b" fontSize={8} opacity={0.7}>PP</text>
+
+            <line x1={pad.left} y1={y(pivot.r1)} x2={dims.w - pad.right} y2={y(pivot.r1)} stroke="#ef4444" strokeWidth={0.5} strokeDasharray="3,4" opacity={0.4} />
+            <text x={pad.left + 2} y={y(pivot.r1) - 3} fill="#ef4444" fontSize={7} opacity={0.5}>R1</text>
+
+            <line x1={pad.left} y1={y(pivot.s1)} x2={dims.w - pad.right} y2={y(pivot.s1)} stroke="#22c55e" strokeWidth={0.5} strokeDasharray="3,4" opacity={0.4} />
+            <text x={pad.left + 2} y={y(pivot.s1) - 3} fill="#22c55e" fontSize={7} opacity={0.5}>S1</text>
+          </g>
+        )}
+
+        {/* S/R level lines */}
+        {srLevels.slice(0, 4).map((l) => (
+          <g key={l.id}>
+            <line
+              x1={pad.left}
+              y1={y(l.price)}
+              x2={dims.w - pad.right}
+              y2={y(l.price)}
+              stroke={l.type === "resistance" ? "#ef4444" : "#22c55e"}
+              strokeWidth={0.7}
+              strokeDasharray="5,3"
+              opacity={0.5}
+            />
+          </g>
+        ))}
+
+        {/* Candlesticks */}
+        {candles.map((c, i) => {
+          const cx = pad.left + i * cW;
+          const isGreen = c.close >= c.open;
+          const color = isGreen ? "#22c55e" : "#ef4444";
+          const bTop = y(Math.max(c.open, c.close));
+          const bBot = y(Math.min(c.open, c.close));
+          const bH = Math.max(1, bBot - bTop);
+          const wickX = cx + cW / 2;
+          const barW = Math.max(1, cW * 0.55);
+          const isHovered = hoveredCandle === i;
+
           return (
-            <g key={`grid-${i}`}>
-              <line
-                x1={padding.left}
-                y1={y}
-                x2={width - padding.right}
-                y2={y}
-                stroke="#1f2937"
-                strokeWidth={0.5}
-                strokeDasharray="3,3"
+            <g
+              key={i}
+              className="animate-candleGrow"
+              style={{ animationDelay: `${i * 5}ms` }}
+              onMouseEnter={() => setHoveredCandle(i)}
+            >
+              {/* Hover highlight */}
+              {isHovered && (
+                <rect x={cx} y={pad.top} width={cW} height={chartH} fill="rgba(255,255,255,0.03)" />
+              )}
+              <line x1={wickX} y1={y(c.high)} x2={wickX} y2={y(c.low)} stroke={color} strokeWidth={0.8} />
+              <rect
+                x={cx + (cW - barW) / 2}
+                y={bTop}
+                width={barW}
+                height={bH}
+                fill={color}
+                rx={0.5}
+                opacity={isHovered ? 1 : 0.9}
               />
-              <text
-                x={width - padding.right + 5}
-                y={y + 3}
-                fill="#6b7280"
-                fontSize={9}
-              >
-                {price.toFixed(2)}
+            </g>
+          );
+        })}
+
+        {/* Current price line */}
+        <line
+          x1={pad.left}
+          y1={y(currentPrice)}
+          x2={dims.w - pad.right}
+          y2={y(currentPrice)}
+          stroke="#3b82f6"
+          strokeWidth={0.8}
+          strokeDasharray="2,2"
+        >
+          <animate attributeName="opacity" values="1;0.5;1" dur="2s" repeatCount="indefinite" />
+        </line>
+        <rect x={dims.w - pad.right} y={y(currentPrice) - 8} width={68} height={16} fill="#3b82f6" rx={3} />
+        <text x={dims.w - pad.right + 4} y={y(currentPrice) + 3} fill="white" fontSize={8} fontWeight="bold">
+          {formatPrice(currentPrice)}
+        </text>
+
+        {/* S/R labels on right */}
+        {srLevels.slice(0, 3).map((l) => {
+          const ly = y(l.price);
+          const isR = l.type === "resistance";
+          return (
+            <g key={`lbl-${l.id}`}>
+              <rect x={dims.w - pad.right} y={ly - 8} width={68} height={16} fill={isR ? "#7f1d1d" : "#14532d"} rx={3} opacity={0.8} />
+              <text x={dims.w - pad.right + 4} y={ly + 3} fill={isR ? "#fca5a5" : "#86efac"} fontSize={8}>
+                {formatPrice(l.price)}
               </text>
             </g>
           );
         })}
 
-        {/* Support/Resistance level lines */}
-        {resistanceLevels.map((level) => {
-          const y = priceToY(level.price);
-          return (
-            <g key={level.id}>
-              <line
-                x1={padding.left}
-                y1={y}
-                x2={width - padding.right}
-                y2={y}
-                stroke="#ef4444"
-                strokeWidth={0.8}
-                strokeDasharray="6,3"
-                opacity={0.7}
-              />
-            </g>
-          );
-        })}
-        {supportLevels.map((level) => {
-          const y = priceToY(level.price);
-          return (
-            <g key={level.id}>
-              <line
-                x1={padding.left}
-                y1={y}
-                x2={width - padding.right}
-                y2={y}
-                stroke="#22c55e"
-                strokeWidth={0.8}
-                strokeDasharray="6,3"
-                opacity={0.7}
-              />
-            </g>
-          );
-        })}
-
-        {/* Pivot line */}
-        <line
-          x1={padding.left}
-          y1={priceToY(pair.pivotPrice)}
-          x2={width - padding.right}
-          y2={priceToY(pair.pivotPrice)}
-          stroke="#f59e0b"
-          strokeWidth={0.8}
-          strokeDasharray="4,4"
-          opacity={0.5}
-        />
-
-        {/* Trend lines */}
-        {trendLine1Start && trendLine1End && (
-          <>
-            <line
-              x1={padding.left + 5 * candleWidth + candleWidth / 2}
-              y1={priceToY(trendLine1Start.high * 1.005)}
-              x2={padding.left + (candles.length - 5) * candleWidth + candleWidth / 2}
-              y2={priceToY(trendLine1End.high * 0.998)}
-              stroke="#f59e0b"
-              strokeWidth={1}
-              opacity={0.4}
-            />
-            <line
-              x1={padding.left + 8 * candleWidth + candleWidth / 2}
-              y1={priceToY(candles[8]?.low * 0.998 || 0)}
-              x2={padding.left + (candles.length - 2) * candleWidth + candleWidth / 2}
-              y2={priceToY(candles[candles.length - 2]?.low * 1.002 || 0)}
-              stroke="#22c55e"
-              strokeWidth={1}
-              opacity={0.4}
-            />
-          </>
-        )}
-
-        {/* Candlesticks */}
-        {candles.map((candle, i) => {
-          const x = padding.left + i * candleWidth;
-          const isGreen = candle.close >= candle.open;
-          const color = isGreen ? "#22c55e" : "#ef4444";
-          const bodyTop = priceToY(Math.max(candle.open, candle.close));
-          const bodyBottom = priceToY(Math.min(candle.open, candle.close));
-          const bodyHeight = Math.max(1, bodyBottom - bodyTop);
-          const wickX = x + candleWidth / 2;
-          const barWidth = Math.max(1, candleWidth * 0.6);
-
-          return (
-            <g key={i}>
-              <line
-                x1={wickX}
-                y1={priceToY(candle.high)}
-                x2={wickX}
-                y2={priceToY(candle.low)}
-                stroke={color}
-                strokeWidth={1}
-              />
-              <rect
-                x={x + (candleWidth - barWidth) / 2}
-                y={bodyTop}
-                width={barWidth}
-                height={bodyHeight}
-                fill={color}
-                rx={0.5}
-              />
-            </g>
-          );
-        })}
-
-        {/* Current price line + label */}
-        <line
-          x1={padding.left}
-          y1={priceToY(pair.currentPrice)}
-          x2={width - padding.right}
-          y2={priceToY(pair.currentPrice)}
-          stroke="#3b82f6"
-          strokeWidth={1}
-          strokeDasharray="2,2"
-        />
-
-        {/* Buy label */}
-        <g>
-          <rect
-            x={width - padding.right}
-            y={priceToY(pair.buyPrice) - 9}
-            width={72}
-            height={18}
-            fill="#22c55e"
-            rx={3}
-          />
-          <text
-            x={width - padding.right + 4}
-            y={priceToY(pair.buyPrice) + 3}
-            fill="white"
-            fontSize={9}
-            fontWeight="bold"
-          >
-            Buy {pair.buyPrice.toFixed(2)}
-          </text>
-        </g>
-
-        {/* Sell label */}
-        <g>
-          <rect
-            x={width - padding.right}
-            y={priceToY(pair.sellPrice) - 9}
-            width={72}
-            height={18}
-            fill="#ef4444"
-            rx={3}
-          />
-          <text
-            x={width - padding.right + 4}
-            y={priceToY(pair.sellPrice) + 3}
-            fill="white"
-            fontSize={9}
-            fontWeight="bold"
-          >
-            Sell {pair.sellPrice.toFixed(2)}
-          </text>
-        </g>
-
-        {/* Price labels on right */}
-        {resistanceLevels.slice(0, 2).map((level) => (
-          <g key={`label-${level.id}`}>
-            <rect
-              x={width - padding.right}
-              y={priceToY(level.price) - 9}
-              width={72}
-              height={18}
-              fill="#7f1d1d"
-              rx={3}
-              opacity={0.8}
-            />
-            <text
-              x={width - padding.right + 4}
-              y={priceToY(level.price) + 3}
-              fill="#fca5a5"
-              fontSize={9}
-            >
-              {level.price.toFixed(2)}
-            </text>
-          </g>
-        ))}
-
         {/* Time labels */}
         {candles
-          .filter((_, i) => i % Math.max(1, Math.floor(candles.length / 6)) === 0)
-          .map((candle, i, arr) => {
-            const idx = candles.indexOf(candle);
+          .filter((_, i) => i % Math.max(1, Math.floor(candles.length / 7)) === 0)
+          .map((c, i) => {
+            const idx = candles.indexOf(c);
             return (
-              <text
-                key={`time-${i}`}
-                x={padding.left + idx * candleWidth + candleWidth / 2}
-                y={height - 5}
-                fill="#6b7280"
-                fontSize={9}
-                textAnchor="middle"
-              >
-                {candle.time.split(" ")[0]}
+              <text key={`t${i}`} x={pad.left + idx * cW + cW / 2} y={dims.h - 4} fill="#4b5563" fontSize={8} textAnchor="middle">
+                {c.timeLabel}
               </text>
             );
           })}
       </svg>
-
-      {/* Price info overlay */}
-      <div className="absolute top-2 left-3 text-[11px] text-muted-foreground space-y-0.5">
-        <div>
-          Giá đang ở phía trên Pivot ({pair.pivotPrice.toFixed(2)}), có xu hướng tăng
-        </div>
-      </div>
     </div>
   );
 }

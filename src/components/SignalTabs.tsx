@@ -8,7 +8,7 @@ const tabs = [
   { id: "live", label: "Tín hiệu Live" },
   { id: "analysis", label: "Phân tích thị trường" },
   { id: "trendlines", label: "Đường xu hướng" },
-  { id: "futures", label: "Futures" },
+  { id: "patterns", label: "Mô hình nến" },
 ];
 
 export default function SignalTabs({ activeTab, onTabChange, trendLineCount }: SignalTabsProps) {
@@ -19,18 +19,18 @@ export default function SignalTabs({ activeTab, onTabChange, trendLineCount }: S
           <button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
-            className={`px-4 py-3 text-xs font-medium whitespace-nowrap transition-all relative ${
+            className={`px-3 py-2.5 text-[10px] font-semibold whitespace-nowrap transition-all relative ${
               activeTab === tab.id
-                ? "text-white bg-secondary/50"
+                ? "text-white"
                 : "text-muted-foreground hover:text-white"
             }`}
           >
             {tab.label}
             {tab.id === "trendlines" && (
-              <span className="ml-1 text-trading-gold">( {trendLineCount} )</span>
+              <span className="ml-0.5 text-trading-gold">({trendLineCount})</span>
             )}
             {activeTab === tab.id && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-trading-gold" />
+              <div className="absolute bottom-0 left-1 right-1 h-[2px] bg-trading-gold rounded-full" />
             )}
           </button>
         ))}
