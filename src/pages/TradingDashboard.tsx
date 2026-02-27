@@ -3,12 +3,13 @@ import TradingHeader from "@/components/TradingHeader";
 import SentimentBar from "@/components/SentimentBar";
 import TimeframeSelector from "@/components/TimeframeSelector";
 import CandlestickChart from "@/components/CandlestickChart";
-import SignalTabs from "@/components/SignalTabs";
 import ResistanceCard from "@/components/ResistanceCard";
 import EntrySignalCard from "@/components/EntrySignalCard";
 import PatternList from "@/components/PatternList";
 import MarqueeTicker from "@/components/MarqueeTicker";
 import AIAnalysisPanel from "@/components/AIAnalysisPanel";
+import DrawingToolbar from "@/components/DrawingToolbar";
+import { useDrawingTools } from "@/hooks/useDrawingTools";
 import { useBinanceData } from "@/hooks/useBinanceData";
 import { TRADING_PAIRS } from "@/lib/binanceApi";
 import { formatPrice, formatVolume, Timeframe } from "@/data/tradingData";
@@ -20,6 +21,7 @@ export default function TradingDashboard() {
   const [activeTab, setActiveTab] = useState("trendlines");
   const [showPairSelector, setShowPairSelector] = useState(false);
 
+  const drawingTools = useDrawingTools();
   const analysis = useBinanceData(selectedSymbol, timeframe);
   const currentPrice = analysis.ticker?.lastPrice || analysis.candles[analysis.candles.length - 1]?.close || 0;
 
@@ -219,6 +221,16 @@ export default function TradingDashboard() {
               <RefreshCw className="w-3 h-3 text-trading-gold animate-spin" />
             </div>
           )}
+          {/* Drawing toolbar */}
+          <DrawingToolbar
+            activeTool={drawingTools.activeTool}
+            onSelectTool={drawingTools.setActiveTool}
+            selectedColor={drawingTools.selectedColor}
+            onSelectColor={drawingTools.setSelectedColor}
+            onClearAll={drawingTools.clearAllDrawings}
+            onUndo={drawingTools.undoLast}
+            drawingCount={drawingTools.drawings.length}
+          />
           <CandlestickChart
             candles={analysis.candles}
             currentPrice={currentPrice}
@@ -227,6 +239,13 @@ export default function TradingDashboard() {
             atr={analysis.atr}
             trendLines={analysis.trendLines}
             entryMarkers={analysis.entryMarkers}
+            activeTool={drawingTools.activeTool}
+            drawings={drawingTools.drawings}
+            activeDrawing={drawingTools.activeDrawing}
+            onStartDrawing={drawingTools.startDrawing}
+            onUpdateDrawing={drawingTools.updateDrawing}
+            onFinishDrawing={drawingTools.finishDrawing}
+            onRemoveDrawing={drawingTools.removeDrawing}
           />
         </div>
       )}
