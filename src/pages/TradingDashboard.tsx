@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "react-resizable-panels";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import TradingHeader from "@/components/TradingHeader";
 import SentimentBar from "@/components/SentimentBar";
 import TimeframeSelector from "@/components/TimeframeSelector";
@@ -317,8 +317,8 @@ export default function TradingDashboard() {
 
       <TimeframeSelector selected={timeframe} onSelect={setTimeframe} />
 
-      <ResizablePanelGroup direction="vertical" className="min-h-[calc(100vh-120px)]">
-        <ResizablePanel defaultSize={55} minSize={30}>
+      <PanelGroup direction="vertical" className="min-h-[calc(100vh-120px)]">
+        <Panel defaultSize={55} minSize={30}>
           <div className="relative h-full">
             <div className="absolute top-2 left-3 z-10 text-[10px] text-muted-foreground/70">
               {candlesQuery.data?.source && (
@@ -352,9 +352,9 @@ export default function TradingDashboard() {
               liquidityZones={showLiquidity ? liquidityQuery.data?.zones : undefined}
             />
           </div>
-        </ResizablePanel>
-        <ResizableHandle className="h-2 bg-trading-borderColor/70 hover:bg-trading-gold/40 transition-colors" />
-        <ResizablePanel defaultSize={45} minSize={25}>
+        </Panel>
+        <PanelResizeHandle className="h-2 bg-trading-borderColor/70 hover:bg-trading-gold/40 transition-colors" />
+        <Panel defaultSize={45} minSize={25}>
           <div className="h-full overflow-auto pb-20">
             <SignalTabs
               activeTab={activeTab}
@@ -363,8 +363,8 @@ export default function TradingDashboard() {
             />
             {renderTabContent()}
           </div>
-        </ResizablePanel>
-      </ResizablePanelGroup>
+        </Panel>
+      </PanelGroup>
     </div>
   );
 }
