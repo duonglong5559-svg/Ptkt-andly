@@ -19,6 +19,7 @@ import {
   detectTrendLines,
   generateEntryMarkers,
   runAIAnalysis,
+  calculateAutoFibonacci,
   CandlePattern,
   PivotPoints,
   SRLevel,
@@ -26,6 +27,7 @@ import {
   TrendLine,
   EntryMarker,
   AIAnalysisScore,
+  FibonacciLevel,
 } from "@/lib/technicalAnalysis";
 
 export interface TradingAnalysis {
@@ -42,6 +44,7 @@ export interface TradingAnalysis {
   trendLines: TrendLine[];
   entryMarkers: EntryMarker[];
   aiScore: AIAnalysisScore;
+  fibonacci: FibonacciLevel[] | null;
   loading: boolean;
   error: string | null;
   lastUpdate: number;
@@ -114,6 +117,7 @@ export function useBinanceData(symbol: string, timeframe: string): TradingAnalys
   const trendLines = detectTrendLines(candles);
   const entryMarkers = generateEntryMarkers(candles, signal);
   const aiScore = runAIAnalysis(candles, pivot, patterns, srLevels, rsi, macd || defaultMacd, atr, sentiment);
+  const fibonacci = calculateAutoFibonacci(candles);
 
   return {
     candles,
@@ -129,6 +133,7 @@ export function useBinanceData(symbol: string, timeframe: string): TradingAnalys
     trendLines,
     entryMarkers,
     aiScore,
+    fibonacci,
     loading,
     error,
     lastUpdate,

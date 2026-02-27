@@ -58,15 +58,32 @@ export const TIMEFRAME_MAP: Record<string, BinanceInterval> = {
   "1W": "1w",
 };
 
-export const TRADING_PAIRS = [
-  { symbol: "BTCUSDT", name: "Bitcoin", short: "BTC/USDT" },
-  { symbol: "ETHUSDT", name: "Ethereum", short: "ETH/USDT" },
-  { symbol: "BNBUSDT", name: "BNB", short: "BNB/USDT" },
-  { symbol: "SOLUSDT", name: "Solana", short: "SOL/USDT" },
-  { symbol: "XRPUSDT", name: "XRP", short: "XRP/USDT" },
-  { symbol: "DOGEUSDT", name: "Dogecoin", short: "DOGE/USDT" },
-  { symbol: "ADAUSDT", name: "Cardano", short: "ADA/USDT" },
-  { symbol: "AVAXUSDT", name: "Avalanche", short: "AVAX/USDT" },
+export type PairCategory = "crypto" | "commodity";
+
+export interface TradingPairInfo {
+  symbol: string;
+  name: string;
+  short: string;
+  category: PairCategory;
+  emoji: string;
+}
+
+export const TRADING_PAIRS: TradingPairInfo[] = [
+  // Top crypto
+  { symbol: "BTCUSDT", name: "Bitcoin", short: "BTC/USDT", category: "crypto", emoji: "₿" },
+  { symbol: "ETHUSDT", name: "Ethereum", short: "ETH/USDT", category: "crypto", emoji: "Ξ" },
+  { symbol: "BNBUSDT", name: "BNB", short: "BNB/USDT", category: "crypto", emoji: "◆" },
+  { symbol: "SOLUSDT", name: "Solana", short: "SOL/USDT", category: "crypto", emoji: "◎" },
+  { symbol: "XRPUSDT", name: "XRP", short: "XRP/USDT", category: "crypto", emoji: "✕" },
+  { symbol: "DOGEUSDT", name: "Dogecoin", short: "DOGE/USDT", category: "crypto", emoji: "Ð" },
+  { symbol: "ADAUSDT", name: "Cardano", short: "ADA/USDT", category: "crypto", emoji: "₳" },
+  { symbol: "AVAXUSDT", name: "Avalanche", short: "AVAX/USDT", category: "crypto", emoji: "▲" },
+  { symbol: "LINKUSDT", name: "Chainlink", short: "LINK/USDT", category: "crypto", emoji: "⬡" },
+  { symbol: "SUIUSDT", name: "Sui", short: "SUI/USDT", category: "crypto", emoji: "💧" },
+  { symbol: "TRUMPUSDT", name: "Trump", short: "TRUMP/USDT", category: "crypto", emoji: "🏛" },
+  { symbol: "PEPEUSDT", name: "Pepe", short: "PEPE/USDT", category: "crypto", emoji: "🐸" },
+  // Commodities (Tokenized)
+  { symbol: "PAXGUSDT", name: "Vàng (Gold)", short: "GOLD/USDT", category: "commodity", emoji: "🥇" },
 ];
 
 function formatTimeLabel(ts: number, interval: BinanceInterval): string {

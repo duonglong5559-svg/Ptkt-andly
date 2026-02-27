@@ -765,121 +765,172 @@ export function calculateSentiment(candles: CandleData[]): { bullish: number; be
   return { bullish: bull, bearish: 100 - bull };
 }
 
-// ─── TREND LINE DETECTION ───
+// ─── TREND LINE DETECTION (improved) ───
 export function detectTrendLines(candles: CandleData[]): TrendLine[] {
-  if (candles.length < 15) return [];
+  if (candles.length < 10) return [];
   const lines: TrendLine[] = [];
+  const len = candles.length;
+  const lastIdx = len - 1;
 
+  // Find swing points with variable lookback
+  const lookback = Math.max(2, Math.min(4, Math.floor(len / 20)));
   const swingHighs: { idx: number; price: number }[] = [];
   const swingLows: { idx: number; price: number }[] = [];
 
-  for (let i = 3; i < candles.length - 3; i++) {
-    const c = candles[i];
-    if (
-      c.high > candles[i - 1].high && c.high > candles[i - 2].high && c.high > candles[i - 3].high &&
-      c.high > candles[i + 1].high && c.high > candles[i + 2].high
-    ) {
-      swingHighs.push({ idx: i, price: c.high });
+  for (let i = lookback; i < len - lookback; i++) {
+    let isHigh = true;
+    let isLow = true;
+    for (let j = 1; j <= lookback; j++) {
+      if (candles[i].high <= candles[i - j].high || candles[i].high <= candles[i + j].high) isHigh = false;
+      if (candles[i].low >= candles[i - j].low || candles[i].low >= candles[i + j].low) isLow = false;
     }
-    if (
-      c.low < candles[i - 1].low && c.low < candles[i - 2].low && c.low < candles[i - 3].low &&
-      c.low < candles[i + 1].low && c.low < candles[i + 2].low
-    ) {
-      swingLows.push({ idx: i, price: c.low });
-    }
+    if (isHigh) swingHighs.push({ idx: i, price: candles[i].high });
+    if (isLow) swingLows.push({ idx: i, price: candles[i].low });
   }
 
-  const buildLine = (
+  const buildBestLine = (
     points: { idx: number; price: number }[],
     type: "resistance" | "support",
+    idPrefix: string,
   ): TrendLine | null => {
     if (points.length < 2) return null;
-    let bestLine: TrendLine | null = null;
-    let bestTouches = 0;
+    let best: TrendLine | null = null;
+    let bestScore = 0;
 
     for (let i = 0; i < points.length - 1; i++) {
       for (let j = i + 1; j < points.length; j++) {
-        const p1 = points[i];
-        const p2 = points[j];
-        if (Math.abs(p2.idx - p1.idx) < 5) continue;
+        const a = points[i];
+        const b = points[j];
+        if (Math.abs(b.idx - a.idx) < 3) continue;
 
-        const slope = (p2.price - p1.price) / (p2.idx - p1.idx);
+        const slope = (b.price - a.price) / (b.idx - a.idx);
         let touches = 2;
+        const avgPrice = (a.price + b.price) / 2;
+        const tolerance = avgPrice * 0.003 + Math.abs(b.price - a.price) * 0.06;
 
         for (let k = 0; k < points.length; k++) {
           if (k === i || k === j) continue;
-          const expected = p1.price + slope * (points[k].idx - p1.idx);
-          const tolerance = Math.abs(p2.price - p1.price) * 0.08 + candles[0].close * 0.001;
+          const expected = a.price + slope * (points[k].idx - a.idx);
           if (Math.abs(points[k].price - expected) < tolerance) touches++;
         }
 
-        if (touches > bestTouches) {
-          bestTouches = touches;
-          bestLine = {
-            id: `tl-${type}-${i}-${j}`,
+        const span = Math.abs(b.idx - a.idx);
+        const recency = Math.max(a.idx, b.idx) / lastIdx;
+        const score = touches * 10 + span * 0.5 + recency * 5;
+
+        if (score > bestScore) {
+          bestScore = score;
+          const endIdx = lastIdx;
+          best = {
+            id: `${idPrefix}-${i}-${j}`,
             type,
-            startIndex: p1.idx,
-            endIndex: Math.min(candles.length - 1, p2.idx + Math.floor((p2.idx - p1.idx) * 0.3)),
-            startPrice: p1.price,
-            endPrice: p1.price + slope * (Math.min(candles.length - 1, p2.idx + Math.floor((p2.idx - p1.idx) * 0.3)) - p1.idx),
+            startIndex: a.idx,
+            endIndex: endIdx,
+            startPrice: a.price,
+            endPrice: a.price + slope * (endIdx - a.idx),
             slope,
             touches,
-            strength: Math.min(100, touches * 25),
+            strength: Math.min(100, touches * 20 + span),
           };
         }
       }
     }
-    return bestLine;
+    return best;
   };
 
-  const rLine = buildLine(swingHighs, "resistance");
-  const sLine = buildLine(swingLows, "support");
-  if (rLine) lines.push(rLine);
-  if (sLine) lines.push(sLine);
+  const rLine = buildBestLine(swingHighs, "resistance", "tl-res");
+  const sLine = buildBestLine(swingLows, "support", "tl-sup");
+  if (rLine && rLine.touches >= 2) lines.push(rLine);
+  if (sLine && sLine.touches >= 2) lines.push(sLine);
 
-  if (swingHighs.length >= 3) {
-    const sorted = [...swingHighs].sort((a, b) => b.price - a.price);
-    const top2 = sorted.slice(0, 2);
-    if (top2.length === 2 && Math.abs(top2[0].idx - top2[1].idx) >= 5) {
-      const [p1, p2] = top2[0].idx < top2[1].idx ? [top2[0], top2[1]] : [top2[1], top2[0]];
-      const slope = (p2.price - p1.price) / (p2.idx - p1.idx);
-      const endIdx = Math.min(candles.length - 1, p2.idx + 10);
-      lines.push({
-        id: "tl-major-res",
-        type: "resistance",
-        startIndex: p1.idx,
-        endIndex: endIdx,
-        startPrice: p1.price,
-        endPrice: p1.price + slope * (endIdx - p1.idx),
-        slope,
-        touches: 2,
-        strength: 60,
-      });
+  // Descending resistance from the 2 highest recent swing highs
+  if (swingHighs.length >= 2) {
+    const recent = swingHighs.filter((p) => p.idx > len * 0.2).sort((a, b) => b.price - a.price);
+    if (recent.length >= 2) {
+      const [h1, h2] = recent[0].idx < recent[1].idx ? [recent[0], recent[1]] : [recent[1], recent[0]];
+      if (h2.idx - h1.idx >= 3) {
+        const slope = (h2.price - h1.price) / (h2.idx - h1.idx);
+        lines.push({
+          id: "tl-desc-res",
+          type: "resistance",
+          startIndex: h1.idx,
+          endIndex: lastIdx,
+          startPrice: h1.price,
+          endPrice: h1.price + slope * (lastIdx - h1.idx),
+          slope,
+          touches: 2,
+          strength: 50,
+        });
+      }
     }
   }
 
-  if (swingLows.length >= 3) {
-    const sorted = [...swingLows].sort((a, b) => a.price - b.price);
-    const bot2 = sorted.slice(0, 2);
-    if (bot2.length === 2 && Math.abs(bot2[0].idx - bot2[1].idx) >= 5) {
-      const [p1, p2] = bot2[0].idx < bot2[1].idx ? [bot2[0], bot2[1]] : [bot2[1], bot2[0]];
-      const slope = (p2.price - p1.price) / (p2.idx - p1.idx);
-      const endIdx = Math.min(candles.length - 1, p2.idx + 10);
-      lines.push({
-        id: "tl-major-sup",
-        type: "support",
-        startIndex: p1.idx,
-        endIndex: endIdx,
-        startPrice: p1.price,
-        endPrice: p1.price + slope * (endIdx - p1.idx),
-        slope,
-        touches: 2,
-        strength: 60,
-      });
+  // Ascending support from the 2 lowest recent swing lows
+  if (swingLows.length >= 2) {
+    const recent = swingLows.filter((p) => p.idx > len * 0.2).sort((a, b) => a.price - b.price);
+    if (recent.length >= 2) {
+      const [l1, l2] = recent[0].idx < recent[1].idx ? [recent[0], recent[1]] : [recent[1], recent[0]];
+      if (l2.idx - l1.idx >= 3) {
+        const slope = (l2.price - l1.price) / (l2.idx - l1.idx);
+        lines.push({
+          id: "tl-asc-sup",
+          type: "support",
+          startIndex: l1.idx,
+          endIndex: lastIdx,
+          startPrice: l1.price,
+          endPrice: l1.price + slope * (lastIdx - l1.idx),
+          slope,
+          touches: 2,
+          strength: 50,
+        });
+      }
     }
   }
 
-  return lines;
+  // Deduplicate very similar lines
+  const deduped: TrendLine[] = [];
+  for (const line of lines) {
+    const dup = deduped.find(
+      (d) => d.type === line.type && Math.abs(d.slope - line.slope) < 0.0001 * candles[0].close && Math.abs(d.startPrice - line.startPrice) < candles[0].close * 0.005,
+    );
+    if (!dup) deduped.push(line);
+    else if (line.touches > dup.touches) {
+      const idx = deduped.indexOf(dup);
+      deduped[idx] = line;
+    }
+  }
+
+  return deduped.slice(0, 4);
+}
+
+// ─── AUTO FIBONACCI ───
+export interface FibonacciLevel {
+  level: number;
+  price: number;
+  label: string;
+}
+
+export function calculateAutoFibonacci(candles: CandleData[]): FibonacciLevel[] | null {
+  if (candles.length < 20) return null;
+  const recent = candles.slice(-Math.min(60, candles.length));
+  let highPrice = -Infinity;
+  let lowPrice = Infinity;
+  for (const c of recent) {
+    if (c.high > highPrice) highPrice = c.high;
+    if (c.low < lowPrice) lowPrice = c.low;
+  }
+  const range = highPrice - lowPrice;
+  if (range <= 0) return null;
+
+  const lastClose = candles[candles.length - 1].close;
+  const isUptrend = lastClose > (highPrice + lowPrice) / 2;
+
+  const levels = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+  return levels.map((l) => ({
+    level: l,
+    price: isUptrend ? highPrice - range * l : lowPrice + range * l,
+    label: `${(l * 100).toFixed(1)}%`,
+  }));
 }
 
 // ─── ENTRY MARKERS ON CHART ───
