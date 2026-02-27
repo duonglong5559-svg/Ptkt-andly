@@ -6,6 +6,14 @@ export default defineConfig({
   server: {
     host: "::",
     port: 8080,
+    proxy: {
+      "/binance-api": {
+        target: "https://data-api.binance.vision",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/binance-api/, "/api/v3"),
+        secure: true,
+      },
+    },
   },
   plugins: [react()],
   resolve: {

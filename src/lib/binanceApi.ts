@@ -1,4 +1,6 @@
-const BASE_URL = "https://api.binance.com/api/v3";
+const BASE_URL = import.meta.env.DEV
+  ? "/binance-api"
+  : "https://data-api.binance.vision/api/v3";
 
 export interface BinanceKline {
   openTime: number;
