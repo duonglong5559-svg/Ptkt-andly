@@ -137,7 +137,7 @@ export default function TradingDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-trading-darkBg text-white max-w-lg mx-auto relative" onClick={() => showPairSelector && setShowPairSelector(false)}>
+    <div className="min-h-screen bg-trading-darkBg text-white max-w-screen-sm mx-auto relative select-none" onClick={() => showPairSelector && setShowPairSelector(false)}>
       <MarqueeTicker aiScore={analysis.aiScore} signal={analysis.signal} currentSymbol={selectedSymbol} />
       <TradingHeader
         selectedSymbol={selectedSymbol} onSelectSymbol={setSelectedSymbol}
