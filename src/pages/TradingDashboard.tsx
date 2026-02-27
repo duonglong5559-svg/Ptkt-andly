@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import TradingHeader from "@/components/TradingHeader";
 import SentimentBar from "@/components/SentimentBar";
 import TimeframeSelector from "@/components/TimeframeSelector";
@@ -11,6 +12,7 @@ import {
   getResistanceLevels,
   Timeframe,
 } from "@/data/tradingData";
+import { fetchCandles } from "@/lib/marketData/fetchCandles";
 
 export default function TradingDashboard() {
   const [selectedPair, setSelectedPair] = useState(tradingPairs[0]);
@@ -18,13 +20,54 @@ export default function TradingDashboard() {
   const [activeTab, setActiveTab] = useState("trendlines");
   const [showPairSelector, setShowPairSelector] = useState(false);
 
-  const candles = useMemo(
-    () => generateCandleData(selectedPair, 50),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedPair, timeframe]
-  );
+  const candlesQuery = useQuery({
+    queryKey: ["candles", selectedPair.kind, selectedPair.marketSymbol, timeframe],
+    queryFn: ({ signal }) =>
+      fetchCandles({
+        kind: selectedPair.kind,
+        symbol: selectedPair.marketSymbol,
+        timeframe,
+        limit: 80,
+        signal,
+      }),
+    staleTime: 15_000,
+    gcTime: 5 * 60_000,
+  });
 
-  const levels = useMemo(() => getResistanceLevels(selectedPair), [selectedPair]);
+  const candles = useMemo(() => {
+    const fromApi = candlesQuery.data?.candles;
+    if (fromApi && fromApi.length > 0) return fromApi;
+    return generateCandleData(selectedPair, 50);
+  }, [candlesQuery.data?.candles, selectedPair]);
+
+  const derivedPair = useMemo(() => {
+    const last = candles[candles.length - 1];
+    const prev = candles[candles.length - 2];
+    const currentPrice = last?.close ?? selectedPair.currentPrice;
+    const pivotPrice =
+      prev && Number.isFinite(prev.high) && Number.isFinite(prev.low) && Number.isFinite(prev.close)
+        ? Number(((prev.high + prev.low + prev.close) / 3).toFixed(2))
+        : selectedPair.pivotPrice;
+
+    const sample = candles.slice(-20);
+    const up = sample.filter((c) => c.close >= c.open).length;
+    const bullish = sample.length > 0 ? Math.round((up / sample.length) * 100) : selectedPair.bullish;
+    const bearish = 100 - bullish;
+    const signal = currentPrice > pivotPrice ? "Long" : currentPrice < pivotPrice ? "Short" : "Neutral";
+
+    return {
+      ...selectedPair,
+      currentPrice,
+      pivotPrice,
+      buyPrice: currentPrice,
+      sellPrice: currentPrice * (signal === "Long" ? 1.006 : 0.994),
+      bullish,
+      bearish,
+      signal,
+    };
+  }, [candles, selectedPair]);
+
+  const levels = useMemo(() => getResistanceLevels(derivedPair), [derivedPair]);
 
   const resistanceLevels = levels.filter((l) => l.type === "resistance");
   const supportLevels = levels.filter((l) => l.type === "support");
@@ -163,28 +206,37 @@ export default function TradingDashboard() {
     >
       <TradingHeader
         pairs={tradingPairs}
-        selectedPair={selectedPair}
+        selectedPair={derivedPair}
         onSelectPair={setSelectedPair}
         showPairSelector={showPairSelector}
         onTogglePairSelector={() => setShowPairSelector((p) => !p)}
       />
 
-      <SentimentBar bullish={selectedPair.bullish} bearish={selectedPair.bearish} />
+      <SentimentBar bullish={derivedPair.bullish} bearish={derivedPair.bearish} />
 
       <TimeframeSelector selected={timeframe} onSelect={setTimeframe} />
 
       <div className="relative">
         <div className="absolute top-2 left-3 z-10 text-[10px] text-muted-foreground/70">
-          Giá đang tại {selectedPair.currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}.{" "}
-          Giá đang ở phía trên Pivot ({selectedPair.pivotPrice.toFixed(2)}), có xu hướng tăng
+          {candlesQuery.data?.source && (
+            <span className="mr-2">
+              Nguồn dữ liệu:{" "}
+              <span className={candlesQuery.data.source === "mock" ? "text-yellow-300" : "text-green-400"}>
+                {candlesQuery.data.source.toUpperCase()}
+              </span>
+            </span>
+          )}
+          Giá đang tại {derivedPair.currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}.{" "}
+          Giá đang {derivedPair.currentPrice >= derivedPair.pivotPrice ? "ở phía trên" : "ở phía dưới"} Pivot (
+          {derivedPair.pivotPrice.toFixed(2)})
         </div>
-        <CandlestickChart candles={candles} pair={selectedPair} levels={levels} />
+        <CandlestickChart candles={candles} pair={derivedPair} levels={levels} />
       </div>
 
       <SignalTabs
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        trendLineCount={selectedPair.trendLines}
+        trendLineCount={derivedPair.trendLines}
       />
 
       <div className="pb-20">{renderTabContent()}</div>

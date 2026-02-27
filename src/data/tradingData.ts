@@ -1,4 +1,5 @@
 export interface CandleData {
+  ts: number;
   time: string;
   open: number;
   high: number;
@@ -28,6 +29,8 @@ export interface ResistanceLevel {
 export interface TradingPair {
   symbol: string;
   name: string;
+  kind: "crypto" | "forex";
+  marketSymbol: string; // binance symbol (crypto) or stooq symbol (forex)
   currentPrice: number;
   pivotPrice: number;
   buyPrice: number;
@@ -42,6 +45,8 @@ export const tradingPairs: TradingPair[] = [
   {
     symbol: "BTC/USDT",
     name: "Bitcoin",
+    kind: "crypto",
+    marketSymbol: "BTCUSDT",
     currentPrice: 66047.63,
     pivotPrice: 65358.27,
     buyPrice: 66047.63,
@@ -54,6 +59,8 @@ export const tradingPairs: TradingPair[] = [
   {
     symbol: "ETH/USDT",
     name: "Ethereum",
+    kind: "crypto",
+    marketSymbol: "ETHUSDT",
     currentPrice: 3456.78,
     pivotPrice: 3380.50,
     buyPrice: 3456.78,
@@ -66,6 +73,8 @@ export const tradingPairs: TradingPair[] = [
   {
     symbol: "BNB/USDT",
     name: "Binance Coin",
+    kind: "crypto",
+    marketSymbol: "BNBUSDT",
     currentPrice: 598.45,
     pivotPrice: 585.20,
     buyPrice: 598.45,
@@ -78,6 +87,8 @@ export const tradingPairs: TradingPair[] = [
   {
     symbol: "XRP/USDT",
     name: "Ripple",
+    kind: "crypto",
+    marketSymbol: "XRPUSDT",
     currentPrice: 2.3456,
     pivotPrice: 2.2800,
     buyPrice: 2.3456,
@@ -86,6 +97,20 @@ export const tradingPairs: TradingPair[] = [
     bearish: 32,
     signal: "Long",
     trendLines: 6,
+  },
+  {
+    symbol: "XAU/USD",
+    name: "Gold Spot",
+    kind: "forex",
+    marketSymbol: "xauusd",
+    currentPrice: 2050.25,
+    pivotPrice: 2038.4,
+    buyPrice: 2050.25,
+    sellPrice: 2062.5,
+    bullish: 54,
+    bearish: 46,
+    signal: "Neutral",
+    trendLines: 4,
   },
 ];
 
@@ -106,6 +131,7 @@ export function generateCandleData(pair: TradingPair, count: number = 50): Candl
     const volume = Math.floor(Math.random() * 1000 + 200);
 
     candles.push({
+      ts: date.getTime(),
       time: `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:00`,
       open: Number(open.toFixed(2)),
       high: Number(high.toFixed(2)),
