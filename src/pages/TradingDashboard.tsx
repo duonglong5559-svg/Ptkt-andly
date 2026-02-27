@@ -13,6 +13,8 @@ import FuturesDemo from "@/components/FuturesDemo";
 import KnowledgeTab from "@/components/KnowledgeTab";
 import { useDrawingTools } from "@/hooks/useDrawingTools";
 import { useBinanceData } from "@/hooks/useBinanceData";
+import AIChat from "@/components/AIChat";
+import LiquidationMap from "@/components/LiquidationMap";
 import { TRADING_PAIRS } from "@/lib/binanceApi";
 import { formatPrice, formatVolume, Timeframe } from "@/data/tradingData";
 import { Loader2, RefreshCw, TrendingUp, TrendingDown, Activity, Brain } from "lucide-react";
@@ -33,11 +35,13 @@ export default function TradingDashboard() {
 
   const tabs = [
     { id: "live", label: "Tín hiệu Live" },
-    { id: "analysis", label: "Phân tích thị trường" },
-    { id: "trendlines", label: `Đường xu hướng ( ${analysis.srLevels.length} )` },
+    { id: "analysis", label: "Phân tích" },
+    { id: "trendlines", label: `S/R ( ${analysis.srLevels.length} )` },
     { id: "futures", label: "Futures" },
+    { id: "ai_chat", label: "AI Chat" },
+    { id: "liq", label: "Thanh khoản" },
     { id: "ai", label: "AI ✦" },
-    { id: "patterns", label: "Mô hình nến" },
+    { id: "patterns", label: "Nến" },
     { id: "knowledge", label: "Kiến thức" },
   ];
 
@@ -124,6 +128,12 @@ export default function TradingDashboard() {
 
       case "futures":
         return <FuturesDemo signal={analysis.signal} currentPrice={currentPrice} symbol={selectedSymbol} />;
+
+      case "ai_chat":
+        return <AIChat aiScore={analysis.aiScore} signal={analysis.signal} pivot={analysis.pivot} rsi={analysis.rsi} atr={analysis.atr} currentPrice={currentPrice} timeframe={timeframe} pairName={pairName} />;
+
+      case "liq":
+        return <LiquidationMap candles={analysis.candles} currentPrice={currentPrice} atr={analysis.atr} />;
 
       case "patterns":
         return <div className="animate-fadeIn"><PatternList patterns={analysis.patterns} /></div>;

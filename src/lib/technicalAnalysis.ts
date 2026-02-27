@@ -560,9 +560,9 @@ export function detectSRLevels(
   const lastPatternBullish = recentPatterns.find((p) => p.direction === "bullish");
 
   const srLevels: SRLevel[] = levels
-    .filter((l) => Math.abs(l.price - currentPrice) < atr * 5)
+    .filter((l) => l.count >= 2 && Math.abs(l.price - currentPrice) < atr * 5)
     .sort((a, b) => b.count - a.count)
-    .slice(0, 8)
+    .slice(0, 6)
     .map((l, idx) => {
       const isResistance = l.price > currentPrice;
       const distance = Math.abs(l.price - currentPrice);
