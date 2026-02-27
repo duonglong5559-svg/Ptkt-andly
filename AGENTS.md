@@ -2,10 +2,32 @@
 
 ## Cursor Cloud specific instructions
 
-This is an empty scaffold repository ("Ptkt-andly") with no application code, dependencies, or services. The repo contains only a `README.md`.
+This is a React/TypeScript trading dashboard application using Vite, Tailwind CSS, and shadcn/ui components.
 
-- **No dependencies** to install (no `package.json`, `requirements.txt`, `pyproject.toml`, etc.).
-- **No services** to start or test.
-- **No lint, test, or build commands** are configured.
+### Setup
+```bash
+npm install
+```
 
-When application code is added, update this file with relevant setup, run, and test instructions.
+### Development
+```bash
+npm run dev     # Starts dev server on port 8080
+npm run build   # Production build
+npm run lint    # ESLint
+npm run test    # Vitest
+```
+
+### Architecture
+- `src/pages/TradingDashboard.tsx` — Main dashboard page
+- `src/components/` — UI components (chart, tabs, AI, liquidity heatmap, etc.)
+- `src/data/tradingData.ts` — Trading data models, technical indicator calculations, mock data generators
+- `src/lib/utils.ts` — Utility functions
+
+### Key Features
+- Candlestick chart with zoom/pan/resize
+- XAU/USD (Forex) + crypto pairs
+- Technical indicators: RSI, MACD, EMA, ATR, Pivot Points
+- AI Trading Assistant (LLM-style)
+- Liquidity Heatmap
+- Support/Resistance with strength filtering
+- Futures trading data
