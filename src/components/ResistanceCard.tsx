@@ -1,5 +1,5 @@
 import { ResistanceLevel } from "@/data/tradingData";
-import { Eye, Copy, Shield, TrendingDown, TrendingUp } from "lucide-react";
+import { Eye, Copy, Shield } from "lucide-react";
 
 interface ResistanceCardProps {
   level: ResistanceLevel;
@@ -11,9 +11,9 @@ export default function ResistanceCard({ level }: ResistanceCardProps) {
   const labelColor = isResistance ? "text-red-400" : "text-green-400";
   const strengthBg =
     level.strength === "Rất mạnh"
-      ? "text-red-400"
+      ? "text-emerald-300"
       : level.strength === "Mạnh"
-        ? "text-orange-400"
+        ? "text-amber-300"
         : "text-yellow-400";
 
   return (
@@ -24,9 +24,17 @@ export default function ResistanceCard({ level }: ResistanceCardProps) {
         <span className={`font-bold text-sm ${labelColor}`}>
           {level.label} @ ${level.price.toLocaleString("en-US", { minimumFractionDigits: 2 })}
         </span>
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-secondary text-muted-foreground border border-trading-borderColor">
+          {level.source}
+        </span>
         {level.isAuto && (
           <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
             AUTO
+          </span>
+        )}
+        {level.highProbability && (
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+            HIGH-PROB
           </span>
         )}
       </div>
@@ -35,8 +43,7 @@ export default function ResistanceCard({ level }: ResistanceCardProps) {
       <div className="flex items-center gap-1 mb-1.5">
         <span className={`w-2 h-2 rounded-full ${dotColor}`} />
         <span className="text-xs text-muted-foreground">
-          Giá đang test {isResistance ? "kháng cự" : "hỗ trợ"} (dưới{" "}
-          {level.confidence > 85 ? "0.6" : "0.9"} ATR)
+          Giá đang test vùng {isResistance ? "kháng cự" : "hỗ trợ"} cứng theo pivot/trendline
         </span>
       </div>
 
@@ -44,7 +51,8 @@ export default function ResistanceCard({ level }: ResistanceCardProps) {
       <div className="flex items-center gap-1 mb-2">
         <span className={`font-bold text-xs ${strengthBg}`}>{level.strength}</span>
         <span className="text-xs text-muted-foreground">
-          · {level.confidence}% tin cậy · {level.testCount} lần test · RR {level.riskReward}
+          · {level.confidence}% tin cậy · {level.testCount} lần test · RR {level.riskReward} (
+          {level.riskRewardRatio.toFixed(1)})
         </span>
       </div>
 

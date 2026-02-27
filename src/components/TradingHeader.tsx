@@ -1,9 +1,10 @@
-import { TradingPair } from "@/data/tradingData";
-import { ChevronDown, TrendingDown, TrendingUp, Minus } from "lucide-react";
+import { TradingPair, TradingSignal, getMarketLabel } from "@/data/tradingData";
+import { ChevronDown } from "lucide-react";
 
 interface TradingHeaderProps {
   pairs: TradingPair[];
   selectedPair: TradingPair;
+  activeSignal: TradingSignal;
   onSelectPair: (pair: TradingPair) => void;
   showPairSelector: boolean;
   onTogglePairSelector: () => void;
@@ -12,23 +13,17 @@ interface TradingHeaderProps {
 export default function TradingHeader({
   pairs,
   selectedPair,
+  activeSignal,
   onSelectPair,
   showPairSelector,
   onTogglePairSelector,
 }: TradingHeaderProps) {
   const signalColor =
-    selectedPair.signal === "Short"
+    activeSignal === "Short"
       ? "bg-red-500/20 text-red-400 border-red-500/30"
-      : selectedPair.signal === "Long"
+      : activeSignal === "Long"
         ? "bg-green-500/20 text-green-400 border-green-500/30"
         : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
-
-  const SignalIcon =
-    selectedPair.signal === "Short"
-      ? TrendingDown
-      : selectedPair.signal === "Long"
-        ? TrendingUp
-        : Minus;
 
   return (
     <div className="relative">
@@ -44,7 +39,7 @@ export default function TradingHeader({
           <button
             className={`flex items-center gap-1 px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${signalColor}`}
           >
-            Lệnh Chờ {selectedPair.signal}
+            Lệnh Chờ {activeSignal}
             <span className="w-2 h-2 rounded-full bg-current animate-pulse_glow" />
           </button>
 
@@ -52,7 +47,12 @@ export default function TradingHeader({
             onClick={onTogglePairSelector}
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-secondary border border-trading-borderColor text-xs font-medium text-white hover:bg-secondary/80 transition-all"
           >
-            {selectedPair.symbol} - {selectedPair.name}
+            <div className="text-left leading-tight">
+              <div>{selectedPair.symbol} - {selectedPair.name}</div>
+              <div className="text-[10px] text-muted-foreground">
+                {getMarketLabel(selectedPair.marketType)} · {selectedPair.venue}
+              </div>
+            </div>
             <ChevronDown className="w-3 h-3" />
           </button>
         </div>
@@ -71,8 +71,14 @@ export default function TradingHeader({
                 pair.symbol === selectedPair.symbol ? "bg-secondary/30 text-green-400" : "text-white"
               }`}
             >
-              <span className="font-medium">{pair.symbol}</span>
-              <span className="text-muted-foreground text-xs">{pair.name}</span>
+              <div className="text-left">
+                <div className="font-medium">{pair.symbol}</div>
+                <div className="text-[10px] text-muted-foreground">{pair.name}</div>
+              </div>
+              <div className="text-right text-[10px] text-muted-foreground">
+                <div>{getMarketLabel(pair.marketType)}</div>
+                <div>{pair.venue}</div>
+              </div>
             </button>
           ))}
         </div>
